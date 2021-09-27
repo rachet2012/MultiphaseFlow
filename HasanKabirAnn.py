@@ -2,18 +2,19 @@ import math as m
 import numpy as np
 import scipy.constants as CONST
 import scipy.optimize as sp
+from unifloc_py.uniflocpy.uPVT.PVT_fluids import FluidStanding as PVT
 
 class HasanKabirAnn():
     """
     Класс для расчета градиента давления в затрубном пространстве
 
     """
-    def __init__(self, qu_gas_m3sec = 33.64, qu_liq_m3sec: float = 0.696,
-                 rho_gas_kgm3: float = 0.679, rho_liq_kgm3: float = 890,
-                sigma_Nm: float = 0.966,d_i_m: float = 0.05, d_o_m: float = 0.1 , 
+    def __init__(self, qu_gas_m3sec = 0.0005, qu_liq_m3sec: float = 0.001,
+                rho_gas_kgm3: float = 0.679, rho_liq_kgm3: float = 860,
+                sigma_Nm: float = 0.015, d_i_m: float = 0.05, d_o_m: float = 0.1 , 
                 C0: float = 1.2, C1: float = 1.15, C2: float = 0.345, 
-                mu_mix_pasec: float = 0.005, theta: float = 90) -> None:
-
+                mu_mix_pasec: float = 0.08, theta: float = 90) -> None:
+        
         self.qu_gas_m3sec = qu_gas_m3sec
         self.qu_liq_m3sec = qu_liq_m3sec
         self.rho_gas_kgm3 = rho_gas_kgm3
@@ -50,6 +51,9 @@ class HasanKabirAnn():
         self.flow_pattern_name = None
 
         self.v_dt_msec = None
+
+        self.epsi_s = None
+        self.epsi_t = None
 
         self.epsi = None
         self.rho_mix_kgm3 = None
@@ -174,36 +178,18 @@ class HasanKabirAnn():
         self.v_dt_msec = (0.345 + 0.1 * (self.d_i_m / self.d_o_m)) *((CONST.g * self.d_o_m * (
                         self.rho_liq_kgm3 - self.rho_gas_kgm3)/(self.rho_gas_kgm3)) ** 0.5) #14
 
+        self.epsi_s = self.vs_gas_msec / (self.C0 * self.v_mix_msec + self.v_dt_msec)#расчет rho_s в градиенте
+
         self.epsi_t = self.vs_gas_msec / (C * self.v_mix_msec + self.v_dt_msec) #7
 
         if self.vs_gas_msec > 0.4:
             self.len_s_m = 0.1 * (C * self.v_mix_msec + self.v_d_msec) / self.vs_gas_msec #10b
-            self.epsi = (1 - self.len_s_m) * self.epsi_t + 0.1 #9a
+            
+            self.epsi = (1 - self.len_s_m) * self.epsi_t + 0.1  #9a
 
         else:
             self.len_s_m = 0.25 * (C * self.v_mix_msec + self.v_d_msec) #11
             self.epsi = (1 - self.len_s_m) * self.epsi_t + 0.25 * self.vs_gas_msec #9b
-
-        
-    # Реализовал через calc_slug_churn, пока оставил
-    #
-    # def calc_churn(self) -> float :
-    #     """
-    #     ##Функция для расчета истинной объемной концентрации газа в churn flow
-
-    #     """
-    #     self.v_d_msec= 1.53 * (CONST.g * self.sigma_Nm * (self.rho_liq_kgm3 - self.rho_gas_kgm3) / (self.rho_liq_kgm3)**2 ) ** 0.25
-    #     self.v_dt_msec = (0.345 + 0.1 * (self.d_i_m/self.d_o_m)) * ((CONST.g * self.d_o_m * (self.rho_liq_kgm3 - self.rho_gas_kgm3)/(self.rho_gas_kgm3)) 
-    #                                             ** 0.5) * (np.sin(self.theta * np.pi/180) ** 0.5) * ((1 + np.cos(self.theta * np.pi/180)) ** 1.2)
-    #     self.epsi_t = self.vs_gas_msec / (self.C1 * self.v_mix_msec + self.v_dt_msec)
-    #     if self.vs_gas_msec > 0.4 :
-    #         self.len_s_m = 0.1 * (self.C1 * self.v_mix_msec + self.v_d_msec) / self.vs_gas_msec
-    #         self.epsi = (1 - self.len_s_m) * self.epsi_t + 0.1
-
-    #     else:
-    #         self.len_s_m = 0.25 * (self.C1 * self.v_mix_msec + self.v_d)
-    #         self.epsi = (1 - self.len_s_m) * self.epsi_t + 0.25 * self.vs_gas_msec
-
 
     def calc_rho_mix(self):
         """
@@ -214,12 +200,41 @@ class HasanKabirAnn():
             self.calc_bubbly()
         elif self.flow_pattern == 2:
             self.calc_slug_churn(self.C0)
-        elif self.flow_pattern == 3:
+        elif self.flow_pattern == 3: #tut3
             self.calc_slug_churn(self.C1)
         elif self.flow_pattern == 4:
             pass
         
         self.rho_mix_kgm3 = self.rho_liq_kgm3 * (1 - self.epsi) + self.rho_gas_kgm3 * self.epsi
+
+
+    def _actual_film_length(self, initial_llf):
+        """
+        Уравнение  [44]
+        """
+        self.coef_b = (-2 * (1 - self.vs_gas_msec / self.v_dt_msec) * ((self.vs_gas_msec - self.v_gls #45
+                    *(1 - self.h_ls) / self.v_dt_msec)) * self.len_ls + (2 / CONST.g) * (self.v_dt_msec 
+                    - self.v_lls) ** 2 * self.h_ls **2) / (1 - self.vs_gas_msec / self.v_dt_msec) ** 2
+
+        self.coef_c = (((self.vs_gas_msec - self.v_gls * (1 - self.h_ls)) / self.v_dt_msec * self.len_ls)
+                        / (1 - self.vs_gas_msec / self.v_dt_msec)) ** 2
+        return initial_llf ** 2 - self.coef_b * initial_llf + self.coef_c
+
+    def acceler_grad_p(self):
+        # [20,23,38,44,47] H_ls =0.80(но можно так же найти как 1-epsi_s)? В методиках по разному
+        self.h_ls = 1 - self.epsi_s
+        self.h_lf = 1 - self.epsi_t
+        self.len_ls = 16 * self.d_equ_m #38
+        self.len_su = self.len_ls / self.len_s_m
+        self.v_lls = ((self.vs_liq_msec + self.vs_gas_msec) - 1.53 * ((self.rho_liq_kgm3 - self.rho_gas_kgm3) #23
+                    * CONST.g * self.sigma_Nm / (self.rho_liq_kgm3) ** 2) ** 0.25 * self.h_ls ** 0.5 * (1 - self.h_ls)) 
+        self.v_gls = (1.53 * ((self.rho_liq_kgm3 - self.rho_gas_kgm3) * CONST.g * self.theta / (self.rho_liq_kgm3) #20
+                    ** 2) ** 0.25 * self.h_ls ** 0.5) - self.v_lls
+        self.act_len_lf = float(sp.fsolve(self._actual_film_length, 0.05))
+        self.v_llf = (CONST.g * 2 * self.act_len_lf) ** 0.5 - self.v_dt_msec #47
+        self.grad_p = self.rho_liq_kgm3 * (self.h_lf / self.len_su) * (self.v_llf - self.v_dt_msec) * (self.v_llf - self.v_lls)
+        return self.grad_p
+
 
     def calc_pressure_gradient(self):
         """
@@ -235,19 +250,34 @@ class HasanKabirAnn():
 
             self.acceleration_grad_pam = 0
 
-        elif self.flow_pattern == 2:
-            pass
-        elif self.flow_pattern == 3:
-            pass
+        elif self.flow_pattern == 2 or self.flow_pattern == 3: #предположил что для slug и churn одна методика. Концентрацию воды нашел как 1 - epsi
+            
+            self.rho_slug_kgm3 = self.rho_gas_kgm3 * self.epsi_s + self.rho_liq_kgm3 * (1-self.epsi_t) # В соответствии c [51] 
+
+            self.density_grad_pam = self.rho_slug_kgm3 * CONST.g * self.len_s_m #[50]
+
+            self.friction_grad_pam = ((2 * self.friction_coeff / self.d_equ_m * self.rho_slug_kgm3) #[53]
+                                     * (self.vs_gas_msec + self.vs_liq_msec) **2 * self.len_s_m)
+
+            self.acceleration_grad_pam = self.acceler_grad_p (self) 
+
         elif self.flow_pattern == 4:
-            pass
+            self.density_grad_pam = 0
+
+            self.friction_grad_pam = 0
+
+            self.acceleration_grad_pam = 0
 
         self.result_grad_pam = self.friction_grad_pam  + self.density_grad_pam + self.acceleration_grad_pam
+
+        return self.result_grad_pam
 
 
         
 
 if __name__ == '__main__':
+
     check = HasanKabirAnn()
-    check.calc_all()
-    print(check.flow_pattern_name)
+    check.calc_pressure_gradient()
+    print(check.__dict__)
+
