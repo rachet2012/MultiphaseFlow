@@ -9,7 +9,7 @@ class HasanKabirAnn():
     Класс для расчета градиента давления в затрубном пространстве
 
     """
-    def __init__(self, qu_gas_m3sec = 0.0001, qu_liq_m3sec: float = 0.001,
+    def __init__(self, qu_gas_m3sec = 0.0001, qu_liq_m3sec: float = 0.0005,
                 rho_gas_kgm3: float = 0.679, rho_liq_kgm3: float = 860,
                 sigma_Nm: float = 0.015, d_i_m: float = 0.05, d_o_m: float = 0.1 , 
                 C0: float = 1.2, C1: float = 1.15, C2: float = 0.345, 
@@ -60,7 +60,7 @@ class HasanKabirAnn():
         self.epsi = None
         self.rho_mix_kgm3 = None
 
-        self.k_ratio_d = self.d_i_m / self.d_o_m
+        self.k_ratio_d = None
 
         self.calc_rash()
         self.calc_pattern()
@@ -78,22 +78,24 @@ class HasanKabirAnn():
         self.vs_gas_msec = self.qu_gas_m3sec / self.f_m2
         self.vs_liq_msec = self.qu_liq_m3sec / self.f_m2
         self.v_mix_msec = (self.qu_gas_m3sec + self.qu_liq_m3sec) / self.f_m2
-        self.rho_m_rash_kgm3 = self.qu_gas_m3sec / (self.qu_gas_m3sec + self.qu_liq_m3sec)
+        self.rho_m_rash_kgm3 = (self.qu_gas_m3sec / (self.qu_gas_m3sec + self.qu_liq_m3sec) 
+                            * self.rho_gas_kgm3 + (1 - self.qu_gas_m3sec / (self.qu_gas_m3sec + self.qu_liq_m3sec)) * self.rho_liq_kgm3)
         self.mu_mix_pasec = (self.vs_liq_msec / self.v_mix_msec * self.mu_liq_pasec 
                             + self.vs_gas_msec / self.v_mix_msec * self.mu_gas_pasec)
         self.number_Re = self.rho_m_rash_kgm3 * self.v_mix_msec * self.d_equ_m / self.mu_mix_pasec
+        self.k_ratio_d = self.d_i_m / self.d_o_m
         
         
              
-    def _friction_coefficient_Gunn_Darling(self, initial_f):
+    def _friction_coefficient_Gunn_Darling(self, num_Re, initial_f):
         """
         ##Функция для определения коэффициента трения в турбулентном течении 
         Upward Vertical Two-Phase Flow Through an Annulus—Part I [15-27]
 
         """
-        right_part = (4 * m.log(self.number_Re * (initial_f * (16 / self.Fca) **
-                     (0.45 * m.exp(-(self.number_Re - 3000) / 10 ** 6))) ** 0.5) - 0.4)
-        left_part = 1 / (initial_f * (16 / self.Fca) ** (0.45 * m.exp(-(self.number_Re - 
+        right_part = (4 * m.log(num_Re* (initial_f * (16 / self.Fca) **
+                     (0.45 * m.exp(-(num_Re - 3000) / 10 ** 6))) ** 0.5) - 0.4)
+        left_part = 1 / (initial_f * (16 / self.Fca) ** (0.45 * m.exp(-(num_Re - 
                     3000) / 10 ** 6))) ** 0.5
 
         return right_part - left_part   
@@ -136,7 +138,7 @@ class HasanKabirAnn():
         if self.number_Re < 3000:  # laminar flow
             self.friction_coeff = self.Fca / self.number_Re
         else:  # turbulent flow
-            self.friction_coeff = float(sp.fsolve(self._friction_coefficient_Gunn_Darling, 0.000005))
+            self.friction_coeff = float(sp.fsolve(self._friction_coefficient_Gunn_Darling(self.number_Re), 0.000005))
         self.v_m_krit2disp_msec = float(sp.fsolve(self._mixture_velocity_Caetano, 1000))
 
         self.set_flow_pattrn()
@@ -197,6 +199,20 @@ class HasanKabirAnn():
         else:
             self.len_s_m = 0.25 * (C * self.v_mix_msec + self.v_d_msec) #11
             self.epsi = (1 - self.len_s_m) * self.epsi_t + 0.25 * self.vs_gas_msec #9b
+
+
+    def _actual_friction_coef(self, rho):
+        """
+        Функция для расчета коэффициента трения
+
+        """
+        self.number_Re_s = rho * self.v_mix_msec * self.d_equ_m / self.mu_mix_pasec
+        if self.number_Re_s < 3000:  # laminar flow
+            friction_coeff = self.Fca / self.number_Re_s
+        else:  # turbulent flow
+            friction_coeff = float(sp.fsolve(self._friction_coefficient_Gunn_Darling(self.number_Re_s), 0.000005))
+        return friction_coeff
+
 
     def _actual_film_length(self, initial_llf):
         """
@@ -286,13 +302,24 @@ class HasanKabirAnn():
         Upward Vertical Two-Phase Flow Through an Annulus—Part II
         
         """
-        if self.flow_pattern == 0 or self.flow_pattern == 1: #[5-14]
+        if self.flow_pattern == 0: #[5-14]
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
 
-            self.friction_grad_pam = (4 * self.friction_coeff / (self.d_o_m - self.d_i_m) 
+            self.friction_coeff_s = self._actual_friction_coef(self.rho_mix_kgm3)
+            self.friction_grad_pam = (4 * self.friction_coeff_s / (self.d_o_m - self.d_i_m) 
                                      * self.v_mix_msec ** 2 / 2)
 
             self.acceleration_grad_pam = 0
+
+        elif self.flow_pattern == 1: #[15-16]
+            self.density_grad_pam = self.rho_m_rash_kgm3 * CONST.g * np.sin(self.theta * np.pi/180) # две методини не согласуются, HasanKabir предлагает брать как в 
+
+            self.friction_coeff_s = self._actual_friction_coef(self.rho_m_rash_kgm3)
+            self.friction_grad_pam = (4 * self.friction_coeff_s / (self.d_o_m - self.d_i_m) 
+                                     * self.v_mix_msec ** 2 / 2)
+
+            self.acceleration_grad_pam = 0
+            
 
         elif self.flow_pattern == 2 or self.flow_pattern == 3: #предположил что для slug и churn одна методика. Концентрацию воды нашел как 1 - epsi
             
@@ -300,7 +327,8 @@ class HasanKabirAnn():
 
             self.density_grad_pam = self.rho_slug_kgm3 * CONST.g * self.len_s_m #[50]
 
-            self.friction_grad_pam = ((2 * self.friction_coeff / self.d_equ_m * self.rho_slug_kgm3) #[53]
+            self.friction_coeff_s = self._actual_friction_coef(self.rho_slug_kgm3)
+            self.friction_grad_pam = ((2 * self.friction_coeff_s / self.d_equ_m * self.rho_slug_kgm3) #[53]
                                      * (self.vs_gas_msec + self.vs_liq_msec) **2 * self.len_s_m)
 
             self.acceleration_grad_pam = self._acceler_grad_p () 
@@ -320,6 +348,10 @@ class HasanKabirAnn():
 
 
 def calc_p_list(p,t):
+    """
+    Функция для расчета распределения давления в затрубе сверху вниз, свойства флюида посчтитаны по корреляции Стендинга
+
+    """
     h_well_m = 2000
     len_m = [i for i in range(0, h_well_m, 50)]
     t_C = [20]
