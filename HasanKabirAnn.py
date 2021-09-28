@@ -15,6 +15,10 @@ class HasanKabirAnn():
                 C0: float = 1.2, C1: float = 1.15, C2: float = 0.345, 
                 mu_mix_pasec: float = 0.08, theta: float = 90) -> None:
         
+        self.mu_gas_pasec = None
+        self.mu_liq_pasec = None
+
+        #добавить вязкости газа,жидкости
         self.qu_gas_m3sec = qu_gas_m3sec
         self.qu_liq_m3sec = qu_liq_m3sec
         self.rho_gas_kgm3 = rho_gas_kgm3
@@ -191,6 +195,67 @@ class HasanKabirAnn():
             self.len_s_m = 0.25 * (C * self.v_mix_msec + self.v_d_msec) #11
             self.epsi = (1 - self.len_s_m) * self.epsi_t + 0.25 * self.vs_gas_msec #9b
 
+    def _actual_film_length(self, initial_llf):
+        """
+        Функция для вычисления фактический длины пленки жидкости в slug/churn
+        Уравнение  [44]
+        """
+        coef_b = (-2 * (1 - self.vs_gas_msec / self.v_dt_msec) * ((self.vs_gas_msec - self.v_gls #45
+                    *(1 - self.h_ls) / self.v_dt_msec)) * self.len_ls + (2 / CONST.g) * (self.v_dt_msec 
+                    - self.v_lls) ** 2 * self.h_ls **2) / (1 - self.vs_gas_msec / self.v_dt_msec) ** 2
+
+        coef_c = (((self.vs_gas_msec - self.v_gls * (1 - self.h_ls)) / self.v_dt_msec * self.len_ls)
+                        / (1 - self.vs_gas_msec / self.v_dt_msec)) ** 2
+        return initial_llf ** 2 - coef_b * initial_llf + coef_c
+
+    def _acceler_grad_p(self) :
+        """
+        Функция для нахождения градиента давления на ускорения в churn и slug flow
+        [20,23,38,44,47] H_ls =0.80(но можно так же найти как 1-epsi_s)? В методиках по разному
+
+        """
+        self.h_ls = 1 - self.epsi_s
+        self.h_lf = 1 - self.epsi_t
+        self.len_ls = 16 * self.d_equ_m #38
+        self.len_su = self.len_ls / self.len_s_m
+        self.v_lls = ((self.vs_liq_msec + self.vs_gas_msec) - 1.53 * ((self.rho_liq_kgm3 - self.rho_gas_kgm3) #23
+                    * CONST.g * self.sigma_Nm / (self.rho_liq_kgm3) ** 2) ** 0.25 * self.h_ls ** 0.5 * (1 - self.h_ls)) 
+        self.v_gls = (1.53 * ((self.rho_liq_kgm3 - self.rho_gas_kgm3) * CONST.g * self.theta / (self.rho_liq_kgm3) #20
+                        ** 2) ** 0.25 * self.h_ls ** 0.5) - self.v_lls
+        self.act_len_lf = float(sp.fsolve(self._actual_film_length, 0.05))
+        self.v_llf = (CONST.g * 2 * self.act_len_lf) ** 0.5 - self.v_dt_msec #47
+        grad_p_acc = self.rho_liq_kgm3 * (self.h_lf / self.len_su) * (self.v_llf - self.v_dt_msec) * (self.v_llf - self.v_lls)
+        return grad_p_acc
+
+    def _ratio_t(self):
+        """
+        Функция для вычисления отношения толщины пленок жидкости в кольцевом потоке [87,88]
+        
+        """
+        angle_wt_average = (1 / (1 - self.k_ratio_d ** 2) * (2 * m.asin(self.k_ratio_d) + 2 * self.k_ratio_d #[88] арксинус посмотреть в чем возвращает
+                             * (1 - self.k_ratio_d ** 2) ** 0.5 - CONST.pi * self.k_ratio_d ** 2))
+        t_ratio = angle_wt_average / ((2 * CONST.pi - angle_wt_average) * self.k_ratio_d)
+        return t_ratio
+
+    def calc_hl_total_annular(self):
+        """
+        Функция для вычисления концентрации жидкости в потоке кольцевой структуры[77]
+        Допустил, что толщина пленки жидкости на внешней(или внутренней) трубе известна()
+        """
+        self.delta_o = 0.005
+        self.delta_i = self.delta_o * self._ratio_t()
+        self.phi = (10 ** 4 * self.vs_gas_msec * self.mu_gas_pasec / self.sigma_Nm * (self.rho_gas_kgm3 #79
+                    / self.rho_liq_kgm3) ** 0.5)
+        self.fe = 1 - m.exp((self.phi - 1.5) * (-0.125))
+        self.hl_total = (4 / ((self.d_o_m) * (1 - self.k_ratio_d ** 2)) * (self.delta_o * (1 - self.delta_o / self.d_o_m) 
+                        + self.delta_i * self.k_ratio_d * (1 + self.delta_i / self.d_i_m) + self.vs_liq_msec * self.fe 
+                        / ((self.vs_liq_msec * self.fe + self.vs_gas_msec) * (1 - self.k_ratio_d ** 2)) * 
+                        (1 - self.k_ratio_d ** 2 - 4 * self.delta_o / self.d_o_m * (1 - self.delta_o / self.d_o_m) 
+                        - 4 *self.delta_i *self.k_ratio_d / self.d_o_m * (1 + self.delta_i / self.d_i_m))))
+        self.epsi = 1 - self.hl_total
+        
+        
+
     def calc_rho_mix(self):
         """
         ##Функция для расчета плотности смеси
@@ -203,37 +268,14 @@ class HasanKabirAnn():
         elif self.flow_pattern == 3: #tut3
             self.calc_slug_churn(self.C1)
         elif self.flow_pattern == 4:
+            self.cals_hl_total_aanular()
+
             pass
         
         self.rho_mix_kgm3 = self.rho_liq_kgm3 * (1 - self.epsi) + self.rho_gas_kgm3 * self.epsi
 
 
-    def _actual_film_length(self, initial_llf):
-        """
-        Уравнение  [44]
-        """
-        self.coef_b = (-2 * (1 - self.vs_gas_msec / self.v_dt_msec) * ((self.vs_gas_msec - self.v_gls #45
-                    *(1 - self.h_ls) / self.v_dt_msec)) * self.len_ls + (2 / CONST.g) * (self.v_dt_msec 
-                    - self.v_lls) ** 2 * self.h_ls **2) / (1 - self.vs_gas_msec / self.v_dt_msec) ** 2
-
-        self.coef_c = (((self.vs_gas_msec - self.v_gls * (1 - self.h_ls)) / self.v_dt_msec * self.len_ls)
-                        / (1 - self.vs_gas_msec / self.v_dt_msec)) ** 2
-        return initial_llf ** 2 - self.coef_b * initial_llf + self.coef_c
-
-    def acceler_grad_p(self):
-        # [20,23,38,44,47] H_ls =0.80(но можно так же найти как 1-epsi_s)? В методиках по разному
-        self.h_ls = 1 - self.epsi_s
-        self.h_lf = 1 - self.epsi_t
-        self.len_ls = 16 * self.d_equ_m #38
-        self.len_su = self.len_ls / self.len_s_m
-        self.v_lls = ((self.vs_liq_msec + self.vs_gas_msec) - 1.53 * ((self.rho_liq_kgm3 - self.rho_gas_kgm3) #23
-                    * CONST.g * self.sigma_Nm / (self.rho_liq_kgm3) ** 2) ** 0.25 * self.h_ls ** 0.5 * (1 - self.h_ls)) 
-        self.v_gls = (1.53 * ((self.rho_liq_kgm3 - self.rho_gas_kgm3) * CONST.g * self.theta / (self.rho_liq_kgm3) #20
-                    ** 2) ** 0.25 * self.h_ls ** 0.5) - self.v_lls
-        self.act_len_lf = float(sp.fsolve(self._actual_film_length, 0.05))
-        self.v_llf = (CONST.g * 2 * self.act_len_lf) ** 0.5 - self.v_dt_msec #47
-        self.grad_p = self.rho_liq_kgm3 * (self.h_lf / self.len_su) * (self.v_llf - self.v_dt_msec) * (self.v_llf - self.v_lls)
-        return self.grad_p
+   
 
 
     def calc_pressure_gradient(self):
@@ -259,9 +301,10 @@ class HasanKabirAnn():
             self.friction_grad_pam = ((2 * self.friction_coeff / self.d_equ_m * self.rho_slug_kgm3) #[53]
                                      * (self.vs_gas_msec + self.vs_liq_msec) **2 * self.len_s_m)
 
-            self.acceleration_grad_pam = self.acceler_grad_p (self) 
+            self.acceleration_grad_pam = self._acceler_grad_p () 
 
         elif self.flow_pattern == 4:
+
             self.density_grad_pam = 0
 
             self.friction_grad_pam = 0
