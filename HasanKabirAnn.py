@@ -347,7 +347,7 @@ class HasanKabirAnn():
 
 
 
-def calc_p_list(p,t):
+def calc_p_list(p:float,t:float):
     """
     Функция для расчета распределения давления в затрубе сверху вниз, свойства флюида посчтитаны по корреляции Стендинга
 
@@ -357,30 +357,30 @@ def calc_p_list(p,t):
     t_C = [20]
     p_well_bar = [1] 
     grad_t = 0.03
+    fluid = PVT()
     for i in len_m:
         p = p_well_bar[-1]
         t = t_C[-1]
-        Fluid = PVT()
-        Fluid.calc(p, t)
-        rho_liq = Fluid.rho_oil_kgm3
-        rho_gas = Fluid.rho_gas_kgm3
-        mu_liq = Fluid.mu_oil_cp
-        mu_gas = Fluid.mu_gas_cp
-        sigma = Fluid.sigma_oil_gas_Nm
-        Flow = HasanKabirAnn(rho_gas_kgm3= rho_gas, rho_liq_kgm3= rho_liq, mu_gas_pasec=mu_gas, mu_liq_pasec= mu_liq,sigma_Nm=sigma)
+        fluid.calc(p, t)
+        rho_liq = fluid.rho_oil_kgm3
+        rho_gas = fluid.rho_gas_kgm3
+        mu_liq = fluid.mu_oil_cp
+        mu_gas = fluid.mu_gas_cp
+        sigma = fluid.sigma_oil_gas_Nm
+        flow = HasanKabirAnn(rho_gas_kgm3= rho_gas, rho_liq_kgm3= rho_liq, mu_gas_pasec=mu_gas, mu_liq_pasec= mu_liq,sigma_Nm=sigma)
         t_point = t + grad_t * 50
-        p_point = p + Flow.calc_pressure_gradient() / 100000 * 50
+        p_point = p + flow.calc_pressure_gradient() / 100000 * 50
         t_C.append(t_point)
         p_well_bar.append(p_point)
     return p_well_bar
 
 if __name__ == '__main__':
 
-    Flow = HasanKabirAnn()
-    Fluid = PVT()
+    flow = HasanKabirAnn()
+    fluid = PVT()
     len_m = [i for i in range(0, 2050, 50)]
     p_list = calc_p_list(1, 20)
     print(len_m)
     print(p_list)
-    print(Flow.flow_pattern_name)
+    print(flow.flow_pattern_name)
 
