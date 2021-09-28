@@ -9,16 +9,12 @@ class HasanKabirAnn():
     Класс для расчета градиента давления в затрубном пространстве
 
     """
-    def __init__(self, qu_gas_m3sec = 0.0005, qu_liq_m3sec: float = 0.001,
+    def __init__(self, qu_gas_m3sec = 0.0001, qu_liq_m3sec: float = 0.001,
                 rho_gas_kgm3: float = 0.679, rho_liq_kgm3: float = 860,
                 sigma_Nm: float = 0.015, d_i_m: float = 0.05, d_o_m: float = 0.1 , 
                 C0: float = 1.2, C1: float = 1.15, C2: float = 0.345, 
-                mu_mix_pasec: float = 0.08, theta: float = 90) -> None:
-        
-        self.mu_gas_pasec = None
-        self.mu_liq_pasec = None
+                theta: float = 90, mu_gas_pasec: float = 0.0001, mu_liq_pasec:float = 0.1) -> None:
 
-        #добавить вязкости газа,жидкости
         self.qu_gas_m3sec = qu_gas_m3sec
         self.qu_liq_m3sec = qu_liq_m3sec
         self.rho_gas_kgm3 = rho_gas_kgm3
@@ -29,8 +25,10 @@ class HasanKabirAnn():
         self.C0 = C0
         self.C1 = C1
         self.C2 = C2
-        self.mu_mix_pasec = mu_mix_pasec
         self.theta = theta
+        self.mu_gas_pasec = mu_gas_pasec
+        self.mu_liq_pasec = mu_liq_pasec
+
         #C1 =1.2 в slug С1=1.15 в churn
 
         #рассчитанные
@@ -42,11 +40,11 @@ class HasanKabirAnn():
         self.v_mix_msec = None
         self.rho_m_rash_kgm3 = None #плотность смеси через расходную концентрацию газа
         self.number_Re = None
-
+        self.mu_mix_pasec = None
 
         self.vs_gas_bubble2slug_msec = None
         self.vs_gas_2annular_msec = None
-        self.k_ratio_d = None
+
         self.friction_coeff = None
         self.Fca = None
         self.v_m_krit2disp_msec = None
@@ -61,6 +59,8 @@ class HasanKabirAnn():
 
         self.epsi = None
         self.rho_mix_kgm3 = None
+
+        self.k_ratio_d = self.d_i_m / self.d_o_m
 
         self.calc_rash()
         self.calc_pattern()
@@ -79,7 +79,10 @@ class HasanKabirAnn():
         self.vs_liq_msec = self.qu_liq_m3sec / self.f_m2
         self.v_mix_msec = (self.qu_gas_m3sec + self.qu_liq_m3sec) / self.f_m2
         self.rho_m_rash_kgm3 = self.qu_gas_m3sec / (self.qu_gas_m3sec + self.qu_liq_m3sec)
+        self.mu_mix_pasec = (self.vs_liq_msec / self.v_mix_msec * self.mu_liq_pasec 
+                            + self.vs_gas_msec / self.v_mix_msec * self.mu_gas_pasec)
         self.number_Re = self.rho_m_rash_kgm3 * self.v_mix_msec * self.d_equ_m / self.mu_mix_pasec
+        
         
              
     def _friction_coefficient_Gunn_Darling(self, initial_f):
@@ -126,7 +129,7 @@ class HasanKabirAnn():
 
         #bubble/slug to dispersed transition [6]
         #Upward Vertical Two-Phase Flow Through an Annulus—Part I [15-27]
-        self.k_ratio_d = self.d_o_m / self.d_i_m
+        self.k_ratio_d = self.d_i_m / self.d_o_m
         self.Fca = (16 * (1 - self.k_ratio_d) ** 2 /
                     ((1 - self.k_ratio_d ** 4) / (1 - self.k_ratio_d ** 2) -
                      (1 - self.k_ratio_d ** 2) / m.log(1 / self.k_ratio_d)))
@@ -232,7 +235,7 @@ class HasanKabirAnn():
         Функция для вычисления отношения толщины пленок жидкости в кольцевом потоке [87,88]
         
         """
-        angle_wt_average = (1 / (1 - self.k_ratio_d ** 2) * (2 * m.asin(self.k_ratio_d) + 2 * self.k_ratio_d #[88] арксинус посмотреть в чем возвращает
+        angle_wt_average = (1 / (1 - self.k_ratio_d ** 2) * (2 * m.asin(self.k_ratio_d) + 2 * self.k_ratio_d   #[88] арксинус посмотреть в чем возвращает
                              * (1 - self.k_ratio_d ** 2) ** 0.5 - CONST.pi * self.k_ratio_d ** 2))
         t_ratio = angle_wt_average / ((2 * CONST.pi - angle_wt_average) * self.k_ratio_d)
         return t_ratio
@@ -244,10 +247,10 @@ class HasanKabirAnn():
         """
         self.delta_o = 0.005
         self.delta_i = self.delta_o * self._ratio_t()
-        self.phi = (10 ** 4 * self.vs_gas_msec * self.mu_gas_pasec / self.sigma_Nm * (self.rho_gas_kgm3 #79
+        self.phi = (10 ** 4 * self.vs_gas_msec * self.mu_gas_pasec / self.sigma_Nm * (self.rho_gas_kgm3 #[79]
                     / self.rho_liq_kgm3) ** 0.5)
         self.fe = 1 - m.exp((self.phi - 1.5) * (-0.125))
-        self.hl_total = (4 / ((self.d_o_m) * (1 - self.k_ratio_d ** 2)) * (self.delta_o * (1 - self.delta_o / self.d_o_m) 
+        self.hl_total = (4 / ((self.d_o_m) * (1 - self.k_ratio_d ** 2)) * (self.delta_o * (1 - self.delta_o / self.d_o_m) #[77]
                         + self.delta_i * self.k_ratio_d * (1 + self.delta_i / self.d_i_m) + self.vs_liq_msec * self.fe 
                         / ((self.vs_liq_msec * self.fe + self.vs_gas_msec) * (1 - self.k_ratio_d ** 2)) * 
                         (1 - self.k_ratio_d ** 2 - 4 * self.delta_o / self.d_o_m * (1 - self.delta_o / self.d_o_m) 
@@ -268,8 +271,7 @@ class HasanKabirAnn():
         elif self.flow_pattern == 3: #tut3
             self.calc_slug_churn(self.C1)
         elif self.flow_pattern == 4:
-            self.cals_hl_total_aanular()
-
+            self.calc_hl_total_annular()
             pass
         
         self.rho_mix_kgm3 = self.rho_liq_kgm3 * (1 - self.epsi) + self.rho_gas_kgm3 * self.epsi
@@ -316,11 +318,37 @@ class HasanKabirAnn():
         return self.result_grad_pam
 
 
-        
+
+def calc_p_list(p,t):
+    h_well_m = 2000
+    len_m = [i for i in range(0, h_well_m, 50)]
+    t_C = [20]
+    p_well_bar = [1] 
+    grad_t = 0.03
+    for i in len_m:
+        p = p_well_bar[-1]
+        t = t_C[-1]
+        Fluid = PVT()
+        Fluid.calc(p, t)
+        rho_liq = Fluid.rho_oil_kgm3
+        rho_gas = Fluid.rho_gas_kgm3
+        mu_liq = Fluid.mu_oil_cp
+        mu_gas = Fluid.mu_gas_cp
+        sigma = Fluid.sigma_oil_gas_Nm
+        Flow = HasanKabirAnn(rho_gas_kgm3= rho_gas, rho_liq_kgm3= rho_liq, mu_gas_pasec=mu_gas, mu_liq_pasec= mu_liq,sigma_Nm=sigma)
+        t_point = t + grad_t * 50
+        p_point = p + Flow.calc_pressure_gradient() / 100000 * 50
+        t_C.append(t_point)
+        p_well_bar.append(p_point)
+    return p_well_bar
 
 if __name__ == '__main__':
 
-    check = HasanKabirAnn()
-    check.calc_pressure_gradient()
-    print(check.__dict__)
+    Flow = HasanKabirAnn()
+    Fluid = PVT()
+    len_m = [i for i in range(0, 2050, 50)]
+    p_list = calc_p_list(1, 20)
+    print(len_m)
+    print(p_list)
+    print(Flow.flow_pattern_name)
 
