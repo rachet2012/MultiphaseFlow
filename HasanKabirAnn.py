@@ -7,14 +7,29 @@ from unifloc_py.uniflocpy.uPVT.PVT_fluids import FluidStanding as PVT
 class HasanKabirAnn():
     """
     Класс для расчета градиента давления в затрубном пространстве
+    Определяются структура потока, истинная концентрация газа, плотность смеси,
+    градиенты на гравитацию, трение, ускорение
 
     """
     def __init__(self, qu_gas_m3sec = 0.0001, qu_liq_m3sec: float = 0.0005,
                 rho_gas_kgm3: float = 0.679, rho_liq_kgm3: float = 860,
-                sigma_Nm: float = 0.015, d_i_m: float = 0.05, d_o_m: float = 0.1 , 
-                C0: float = 1.2, C1: float = 1.15, C2: float = 0.345, 
+                sigma_Nm: float = 0.015, d_i_m: float = 0.05, d_o_m: float = 0.1, 
                 theta: float = 90, mu_gas_pasec: float = 0.0001, mu_liq_pasec:float = 0.1) -> None:
+        """
 
+
+        :param qu_gas_m3sec: дебит скважины по газу, м3/сек
+        :param qu_liq_m3sec: дебит скважины по нефти, м3/сек
+        :param rho_gas_kgm3: плотность газа, кг/м3
+        :param rho_liq_kgm3: плотность нетфи, кг/м3
+        :param sigma_Nm: поверхностное натяжение нефть/газ, Н/м
+        :param d_i_m: внешний диаметр НКТ, м
+        :param d_o_m: внутренний диаметр ЭК, м
+        :param theta: угол наклона скважины
+        :param mu_gas_pasec: вязкость газа, Па*сек
+        :param mu_liq_pasec: вязкость нефти, Па*сек
+
+        """
         self.qu_gas_m3sec = qu_gas_m3sec
         self.qu_liq_m3sec = qu_liq_m3sec
         self.rho_gas_kgm3 = rho_gas_kgm3
@@ -22,15 +37,15 @@ class HasanKabirAnn():
         self.sigma_Nm = sigma_Nm
         self.d_i_m = d_i_m
         self.d_o_m = d_o_m
-        self.C0 = C0
-        self.C1 = C1
-        self.C2 = C2
+
         self.theta = theta
         self.mu_gas_pasec = mu_gas_pasec
         self.mu_liq_pasec = mu_liq_pasec
 
         #C1 =1.2 в slug С1=1.15 в churn
-
+        self.C0 = 1.2
+        self.C1 = 1.15
+        self.C2 = 0.345
         #рассчитанные
         self.f_m2 = None       
         self.d_equ_m = None
@@ -91,6 +106,8 @@ class HasanKabirAnn():
         """
         ##Функция для определения коэффициента трения в турбулентном течении 
         Upward Vertical Two-Phase Flow Through an Annulus—Part I [15-27]
+    
+        :param num_Re: число Рейнольдса, посчитанное по разным плотностям
 
         """
         right_part = (4 * m.log(num_Re* (initial_f * (16 / self.Fca) **
@@ -131,7 +148,6 @@ class HasanKabirAnn():
 
         #bubble/slug to dispersed transition [6]
         #Upward Vertical Two-Phase Flow Through an Annulus—Part I [15-27]
-        self.k_ratio_d = self.d_i_m / self.d_o_m
         self.Fca = (16 * (1 - self.k_ratio_d) ** 2 /
                     ((1 - self.k_ratio_d ** 4) / (1 - self.k_ratio_d ** 2) -
                      (1 - self.k_ratio_d ** 2) / m.log(1 / self.k_ratio_d)))
@@ -179,6 +195,7 @@ class HasanKabirAnn():
     def calc_slug_churn(self, C) -> float:
         """
         ##Функция для расчета истинной объемной концентрации газа в slug и churn flow
+        :param С: параметр распределения газовой фазы в потоке
 
         """
         self.v_d_msec = (1.53 * (CONST.g * self.sigma_Nm * (self.rho_liq_kgm3 - self.rho_gas_kgm3) 
@@ -204,6 +221,7 @@ class HasanKabirAnn():
     def _actual_friction_coef(self, rho):
         """
         Функция для расчета коэффициента трения
+        :param rho: плотность смеси по различным корреляциям, кг/м3
 
         """
         self.number_Re_s = rho * self.v_mix_msec * self.d_equ_m / self.mu_mix_pasec
@@ -347,13 +365,14 @@ class HasanKabirAnn():
 
 
 
-def calc_p_list(p:float,t:float):
+def calc_p_list(p:float,t:float, h:float):
     """
     Функция для расчета распределения давления в затрубе сверху вниз, свойства флюида посчтитаны по корреляции Стендинга
-
+    :param p: давление, бар
+    :param t: температура, С
+    :param h: глубина скважины, м
     """
-    h_well_m = 2000
-    len_m = [i for i in range(0, h_well_m, 50)]
+    len_m = [i for i in range(0, h, 50)]
     t_C = [20]
     p_well_bar = [1] 
     grad_t = 0.03
@@ -378,9 +397,7 @@ if __name__ == '__main__':
 
     flow = HasanKabirAnn()
     fluid = PVT()
-    len_m = [i for i in range(0, 2050, 50)]
-    p_list = calc_p_list(1, 20)
-    print(len_m)
+    p_list = calc_p_list(1, 20, 2000)
     print(p_list)
     print(flow.flow_pattern_name)
 
