@@ -368,6 +368,15 @@ class HasanKabirAnn(PVT):
 
         return self.result_grad_pam
 
+    def grad_func(self, t, p):
+
+        fp = self.result_grad_pam
+        return fp
+
+    def func_p_list(self):
+        sol = solve_ivp(self.grad_func, (0,2000) , (5, 50))
+        return sol.y
+
     def calc_IPT(self):
         self.len_m = [i for i in range(0, self.h, 50)]
         self.t_C = [self.t_head]
@@ -384,40 +393,9 @@ class HasanKabirAnn(PVT):
         return self.p_well_bar, self.flow_pattern_name
 
 
-# def calc_p_list(p:float,t:float, h:float, qu_oil:float, qu_gas:float):
-#     """
-#     Функция для расчета распределения давления в затрубе сверху вниз, свойства флюида посчтитаны по корреляции Стендинга
-#     :param p: давление на устье, бар
-#     :param t: температура на устье, С
-#     :param h: глубина скважины, м
-#     :param qu_oil: дебит по нефти, м3/сек
-#     :param qu_gas: дебит по газу, м3/сек
-#     """
-#     len_m = [i for i in range(0, h, 50)]
-#     t_C = [t]
-#     p_well_bar = [p] 
-#     grad_t = 0.03
-#     fluid = PVT()
-#     for i in len_m:
-#         p_rr = p_well_bar[-1]
-#         t_rr = t_C[-1]
-#         fluid.calc(p_rr, t_rr)
-#         rho_liq = fluid.rho_oil_kgm3
-#         rho_gas = fluid.rho_gas_kgm3
-#         mu_liq = fluid.mu_oil_cp
-#         mu_gas = fluid.mu_gas_cp
-#         sigma = fluid.sigma_oil_gas_Nm
-#         flow = HasanKabirAnn(rho_gas_kgm3= rho_gas, rho_liq_kgm3= rho_liq, mu_gas_pasec=mu_gas, mu_liq_pasec= mu_liq, sigma_Nm=sigma, qu_liq_m3sec= qu_oil, qu_gas_m3sec= qu_gas)
-#         t_point = t_rr + grad_t * 50
-#         p_point = p_rr + flow.calc_pressure_gradient() / 100000 * 50
-#         t_C.append(t_point)
-#         p_well_bar.append(p_point)
-#     return p_well_bar, flow.flow_pattern_name
 
 if __name__ == '__main__':
     flow = HasanKabirAnn()
 
     print(flow.calc_IPT())
-
-    # p_list = calc_p_list(2, 20, 2000, 0.0004, 0.0005)
-    # print(p_list)
+    print(flow.func_p_list())
