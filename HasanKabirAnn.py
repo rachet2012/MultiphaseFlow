@@ -79,6 +79,8 @@ class HasanKabirAnn(PVT):
         self.rho_mix_kgm3 = None
 
         self.k_ratio_d = None
+
+        self.grad_t = 0.03
         
         self.calc_PVT(self.p_head, self.t_head)
         self.calc_rash()
@@ -317,12 +319,14 @@ class HasanKabirAnn(PVT):
    
 
 
-    def calc_pressure_gradient(self):
+    def calc_pressure_gradient(self, p_rr, t_rr):
         """
         ##Функция для расчета градиента давления
         Upward Vertical Two-Phase Flow Through an Annulus—Part II
         
         """
+        self.calc_PVT(p_rr, t_rr)
+
         if self.flow_pattern == 0: #[5-14]
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
 
@@ -368,26 +372,29 @@ class HasanKabirAnn(PVT):
 
         return self.result_grad_pam
 
-    def grad_func(self, t, p):
-
-        fp = self.result_grad_pam
-        return fp
+    def grad_func(self, t, p, T):
+        """
+        t - длина
+        T - температура
+        dp/dt = grad_func(t, p, T)
+        """
+        self.calc_pressure_gradient(p, T)
+        return self.result_grad_pam
 
     def func_p_list(self):
-        sol = solve_ivp(self.grad_func, (0,2000) , (5, 50))
+        self.p, self.T = self.p_head, self.t_head
+        sol = solve_ivp(self.grad_func, (0, self.h), [self.p], args=(self.p, self.T))
         return sol.y
 
     def calc_IPT(self):
         self.len_m = [i for i in range(0, self.h, 50)]
         self.t_C = [self.t_head]
         self.p_well_bar = [self.p_head] 
-        self.grad_t = 0.03
         for i in self.len_m:
             self.p_rr = self.p_well_bar[-1]
             self.t_rr = self.t_C[-1]
-            self.calc_PVT(self.p_rr, self.t_rr)
             self.t_point = self.t_rr + self.grad_t * 50
-            self.p_point = self.p_rr + self.calc_pressure_gradient() / 100000 * 50
+            self.p_point = self.p_rr + self.calc_pressure_gradient(self.p_rr, self.t_rr) / 100000 * 50
             self.t_C.append(self.t_point)
             self.p_well_bar.append(self.p_point)
         return self.p_well_bar, self.flow_pattern_name
@@ -398,4 +405,4 @@ if __name__ == '__main__':
     flow = HasanKabirAnn()
 
     print(flow.calc_IPT())
-    print(flow.func_p_list())
+    # print(flow.func_p_list())
