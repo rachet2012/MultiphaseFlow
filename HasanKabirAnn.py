@@ -4,6 +4,7 @@ import scipy.constants as CONST
 import scipy.optimize as sp
 from scipy.integrate import solve_ivp
 from unifloc_py.uniflocpy.uPVT.PVT_fluids import FluidStanding as PVT
+from unifloc.pvt.fluid_flow import FluidFlow
 
 class HasanKabirAnn(PVT):
     """
@@ -111,7 +112,8 @@ class HasanKabirAnn(PVT):
         self.mu_gas_pasec = self.PVT.mu_gas_cp
         self.mu_liq_pasec = self.PVT.mu_oil_cp
         self.rho_gas_kgm31 = self.PVT._rho_gas_kgm3
-        self.rho_liq_kgm3 = self.PVT.rho_oil_kgm3
+        #  self.PVT.rho_oil_kgm3
+        self.rho_liq_kgm3 = 1000
         self.sigma_Nm = self.PVT.sigma_oil_gas_Nm
 
 
@@ -319,16 +321,16 @@ class HasanKabirAnn(PVT):
    
 
 
-    def calc_pressure_gradient(self, p_rr, t_rr):
+    def calc_pressure_gradient(self, p, t):
         """
         ##Функция для расчета градиента давления
         Upward Vertical Two-Phase Flow Through an Annulus—Part II
         
         """
-        # self.calc_PVT(p_rr, t_rr)
-        # self.calc_rash()
-        # self.calc_pattern()
-        # self.calc_rho_mix()
+        self.calc_PVT(p, t)
+        self.calc_rash()
+        self.calc_pattern()
+        self.calc_rho_mix()
 
         if self.flow_pattern == 0: #[5-14]
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
@@ -375,28 +377,30 @@ class HasanKabirAnn(PVT):
 
         return self.result_grad_pam
 
-    def grad_func(self, p, t):
+    def grad_func(self, h, pt):
         """
         t - длина
         T - температура
         dp/dt = grad_func(t, p, T)
-        """
-        
-        dp_dl = self.calc_pressure_gradient(p, t) / 100000
+        """ 
+        dp_dl = self.calc_pressure_gradient(pt[0], pt[1]) / 100000
         dt_dl = 0.03
         return dp_dl, dt_dl
 
-    def func_p_list(self, p, t, h):
+    def func_p_list(self):
         p0,t0 = self.p_head, self.t_head
         h0 = 0
         h1 = self.h
         self.calc_PVT(p0, t0)
-        steps = [i for i in range(h0, h1, 50)]
-        sol = solve_ivp(self.grad_func, t_span=(h0, h1), y0=[p0,t0],t_eval = steps) 
+        self.calc_rash()
+        self.calc_pattern()
+        self.calc_rho_mix()
+        steps = [i for i in range(h0, h1+50, 50)]
+        sol = solve_ivp(self.grad_func, t_span=(h0, h1), y0=[p0, t0], t_eval = steps) 
         return sol.y, 
 
     def calc_IPT(self):
-        self.len_m = [i for i in range(0, self.h, 50)]
+        self.len_m = [i for i in range(0, self.h+60, 50)]
         self.t_C = [self.t_head]
         self.p_well_bar = [self.p_head] 
         for i in self.len_m:
@@ -418,4 +422,4 @@ if __name__ == '__main__':
     flow = HasanKabirAnn()
 
     print(flow.calc_IPT())
-    print(flow.func_p_list(5, 20, 2000))
+    print(flow.func_p_list())
