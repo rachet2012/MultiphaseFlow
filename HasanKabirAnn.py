@@ -325,7 +325,10 @@ class HasanKabirAnn(PVT):
         Upward Vertical Two-Phase Flow Through an Annulus—Part II
         
         """
-        self.calc_PVT(p_rr, t_rr)
+        # self.calc_PVT(p_rr, t_rr)
+        # self.calc_rash()
+        # self.calc_pattern()
+        # self.calc_rho_mix()
 
         if self.flow_pattern == 0: #[5-14]
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
@@ -372,19 +375,25 @@ class HasanKabirAnn(PVT):
 
         return self.result_grad_pam
 
-    def grad_func(self, t, p, T):
+    def grad_func(self, p, t):
         """
         t - длина
         T - температура
         dp/dt = grad_func(t, p, T)
         """
-        self.calc_pressure_gradient(p, T)
-        return self.result_grad_pam
+        
+        dp_dl = self.calc_pressure_gradient(p, t) / 100000
+        dt_dl = 0.03
+        return dp_dl, dt_dl
 
-    def func_p_list(self):
-        self.p, self.T = self.p_head, self.t_head
-        sol = solve_ivp(self.grad_func, (0, self.h), [self.p], args=(self.p, self.T))
-        return sol.y
+    def func_p_list(self, p, t, h):
+        p0,t0 = self.p_head, self.t_head
+        h0 = 0
+        h1 = self.h
+        self.calc_PVT(p0, t0)
+        steps = [i for i in range(h0, h1, 50)]
+        sol = solve_ivp(self.grad_func, t_span=(h0, h1), y0=[p0,t0],t_eval = steps) 
+        return sol.y, 
 
     def calc_IPT(self):
         self.len_m = [i for i in range(0, self.h, 50)]
@@ -397,6 +406,10 @@ class HasanKabirAnn(PVT):
             self.p_point = self.p_rr + self.calc_pressure_gradient(self.p_rr, self.t_rr) / 100000 * 50
             self.t_C.append(self.t_point)
             self.p_well_bar.append(self.p_point)
+            self.calc_PVT(self.p_rr, self.t_rr)
+            self.calc_rash()
+            self.calc_pattern()
+            self.calc_rho_mix()
         return self.p_well_bar, self.flow_pattern_name
 
 
@@ -405,4 +418,4 @@ if __name__ == '__main__':
     flow = HasanKabirAnn()
 
     print(flow.calc_IPT())
-    # print(flow.func_p_list())
+    print(flow.func_p_list(5, 20, 2000))
