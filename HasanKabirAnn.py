@@ -12,7 +12,7 @@ class HasanKabirAnn(PVT):
     Определяются структура потока, истинная концентрация газа, плотность смеси,
     градиенты на гравитацию, трение, ускорение
     """
-    def __init__(self, qu_gas_m3sec:float = 0.0001, qu_liq_m3sec: float = 0.0005, d_i_m: float = 0.05, d_o_m: float = 0.1,
+    def __init__(self, qu_gas_m3sec:float = 0.0000, qu_liq_m3sec: float = 0.0005, d_i_m: float = 0.05, d_o_m: float = 0.1,
                 theta: float = 90, h:float = 2000, p_head:float = 5, t_head:float = 20,
                 rho_gas_kgm31: float = 0.679, rho_liq_kgm3: float = 860, sigma_Nm: float = 0.015,  
                  mu_gas_pasec: float = 0.0001, mu_liq_pasec:float = 0.1) -> None:
@@ -410,10 +410,7 @@ class HasanKabirAnn(PVT):
             self.p_point = self.p_rr + self.calc_pressure_gradient(self.p_rr, self.t_rr) / 100000 * 50
             self.t_C.append(self.t_point)
             self.p_well_bar.append(self.p_point)
-            self.calc_PVT(self.p_rr, self.t_rr)
-            self.calc_rash()
-            self.calc_pattern()
-            self.calc_rho_mix()
+
         return self.p_well_bar, self.flow_pattern_name
 
 
