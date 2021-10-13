@@ -3,19 +3,17 @@ import numpy as np
 import scipy.constants as CONST
 import scipy.optimize as sp
 from scipy.integrate import solve_ivp
-from unifloc_py.uniflocpy.uPVT.PVT_fluids import FluidStanding as PVT
 from unifloc.pvt.fluid_flow import FluidFlow
 
-class HasanKabirAnn(PVT):
+class HasanKabirAnn(FluidFlow):
     """
     Класс для расчета градиента давления в затрубном пространстве
     Определяются структура потока, истинная концентрация газа, плотность смеси,
     градиенты на гравитацию, трение, ускорение
     """
-    def __init__(self, qu_gas_m3sec:float = 0.0000, qu_liq_m3sec: float = 0.0005, d_i_m: float = 0.05, d_o_m: float = 0.1,
-                theta: float = 90, h:float = 2000, p_head:float = 5, t_head:float = 20,
-                rho_gas_kgm31: float = 0.679, rho_liq_kgm3: float = 860, sigma_Nm: float = 0.015,  
-                 mu_gas_pasec: float = 0.0001, mu_liq_pasec:float = 0.1) -> None:
+    def __init__(self, qu_gas_m3sec:float = 100, qu_liq_m3sec: float = 100, d_i_m: float = 0.05, d_o_m: float = 0.1,
+                theta: float = 90, h:float = 2000, p_head:float = 5, t_head:float = 20, wct:float = 1,
+                ) -> None:
         """
         :param qu_gas_m3sec: дебит скважины по газу, м3/сек
         :param qu_liq_m3sec: дебит скважины по нефти, м3/сек
@@ -28,11 +26,14 @@ class HasanKabirAnn(PVT):
         :param mu_gas_pasec: вязкость газа, Па*сек
         :param mu_liq_pasec: вязкость нефти, Па*сек
         """
-        self.qu_gas_m3sec = qu_gas_m3sec
-        self.qu_liq_m3sec = qu_liq_m3sec
+        self.qu_gas_m3sec = qu_gas_m3sec / 86400
+        self.qu_liq_m3sec = qu_liq_m3sec / 86400
+        self.wct = wct
 
-        self.p_head = p_head
-        self.t_head = t_head
+        self.p_head = p_head * (10 ** 5)
+        self.t_head = t_head + 273
+
+
 
         self.mu_gas_pasec = None
         self.mu_liq_pasec = None
@@ -107,14 +108,28 @@ class HasanKabirAnn(PVT):
         self.k_ratio_d = self.d_i_m / self.d_o_m
         
     def calc_PVT(self, p, t):
-        self.PVT = PVT()
-        self.PVT.calc(p, t)
-        self.mu_gas_pasec = self.PVT.mu_gas_cp
-        self.mu_liq_pasec = self.PVT.mu_oil_cp
-        self.rho_gas_kgm31 = self.PVT._rho_gas_kgm3
-        #  self.PVT.rho_oil_kgm3
-        self.rho_liq_kgm3 = 1000
-        self.sigma_Nm = self.PVT.sigma_oil_gas_Nm
+        # self.PVT = PVT()
+        self.pvt_model =  {"black_oil": {"gamma_gas": 0.7, "gamma_wat": 1, "gamma_oil": 0.8,
+                                         "rp": 50,
+                                         "oil_correlations":
+                                          {"pb": "Standing", "rs": "Standing",
+                                           "rho": "Standing","b": "Standing",
+                                          "mu": "Beggs", "compr": "Vasquez"},
+                            "gas_correlations": {"ppc": "Standing", "tpc": "Standing",
+                                                  "z": "Dranchuk", "mu": "Lee"},
+                             "water_correlations": {"b": "McCain", "compr": "Kriel",
+                                                    "rho": "Standing", "mu": "McCain"},
+                            "rsb": {"value": 50, "p": 10000000, "t": 303.15},
+                             "muob": {"value": 0.5, "p": 10000000, "t": 303.15},
+                             "bob": {"value": 1.5, "p": 10000000, "t": 303.15},
+                             "table_model_data": None, "use_table_model": False}}
+        self.PVT = FluidFlow(self.qu_liq_m3sec, self.wct, self.pvt_model)
+        self.PVT.calc_flow(p, t)
+        self.mu_gas_pasec = self.PVT.mug
+        self.mu_liq_pasec = self.PVT.mul
+        self.rho_gas_kgm31 = self.PVT.rho_gas
+        self.rho_liq_kgm3 = self.PVT.rho_wat
+        self.sigma_Nm = self.PVT.stlg
 
 
 
@@ -383,7 +398,7 @@ class HasanKabirAnn(PVT):
         T - температура
         dp/dt = grad_func(t, p, T)
         """ 
-        dp_dl = self.calc_pressure_gradient(pt[0], pt[1]) / 100000
+        dp_dl = self.calc_pressure_gradient(pt[0], pt[1]) 
         dt_dl = 0.03
         return dp_dl, dt_dl
 
@@ -407,16 +422,35 @@ class HasanKabirAnn(PVT):
             self.p_rr = self.p_well_bar[-1]
             self.t_rr = self.t_C[-1]
             self.t_point = self.t_rr + self.grad_t * 50
-            self.p_point = self.p_rr + self.calc_pressure_gradient(self.p_rr, self.t_rr) / 100000 * 50
+            self.p_point = self.p_rr + self.calc_pressure_gradient(self.p_rr, self.t_rr) * 50
             self.t_C.append(self.t_point)
             self.p_well_bar.append(self.p_point)
-
         return self.p_well_bar, self.flow_pattern_name
 
 
 
 if __name__ == '__main__':
     flow = HasanKabirAnn()
-
-    print(flow.calc_IPT())
     print(flow.func_p_list())
+
+    print(flow.flow_pattern_name)
+
+    print(flow.v_mix_msec)
+    print(flow.v_m_krit2disp_msec)
+    # print(flow.calc_IPT())
+    # print(flow.func_p_list())
+        # if self.vs_gas_msec >= self.vs_gas_2annular_msec:
+        #     self.flow_pattern = 4
+        #     self.flow_pattern_name = 'Annular flow pattern - Кольцевой режим'
+        # elif self.vs_gas_msec >= self.vs_gas_bubble2slug_msec and (0.25 * self.vs_gas_msec) < 0.52 and self.v_mix_msec < self.v_m_krit2disp_msec:
+        #     self.flow_pattern = 2
+        #     self.flow_pattern_name = 'Slug flow pattern - Пробковый режим'
+        # elif self.vs_gas_msec >= self.vs_gas_bubble2slug_msec and (0.25 * self.vs_gas_msec) >= 0.52:
+        #     self.flow_pattern = 3
+        #     self.flow_pattern_name = 'Chug flow pattern - Вспененный режим'
+        # elif self.vs_gas_msec <= self.vs_gas_bubble2slug_msec and self.v_mix_msec < self.v_m_krit2disp_msec:
+        #     self.flow_pattern = 0
+        #     self.flow_pattern_name = 'Bubble flow pattern - пузырьковый режим'
+        # elif self.v_mix_msec >= self.v_m_krit2disp_msec:
+        #     self.flow_pattern = 1
+        #     self.flow_pattern_name = 'Dispersed bubble flow pattern - дисперсионно-пузырьковый режим'       
