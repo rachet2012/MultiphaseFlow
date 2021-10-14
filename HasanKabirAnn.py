@@ -476,16 +476,16 @@ if __name__ == '__main__':
     #ТЕСТ
     test2 = HasanKabirAnn(qu_gas_m3day=0,qu_liq_m3day=400)
     print(test2.flow_pattern_name)
-    print(test2.func_p_list())
-
-    # qg = [i for i in range(0, 5000, 1000)]
+    print(test2.func_p_list()) #хорошая сходимость
+    
+    # qg = [i for i in range(0, 1000, 100)]
     # ql = [i for i in range(0, 1500, 100)]
     # for i in qg:
     #     flow = HasanKabirAnn(qu_gas_m3day=i,qu_liq_m3day=400)
     #     print(flow.flow_pattern_name)
 
     #     print(flow.func_p_list())
-        # flow.func_p_list()
+    #     flow.func_p_list()
         
 
     #TEST тестовый тех режим 
