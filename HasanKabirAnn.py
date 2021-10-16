@@ -144,26 +144,13 @@ class HasanKabirAnn(FluidFlow):
         self.rho_liq_kgm3 = self.PVT.rho_wat
         self.sigma_Nm = self.PVT.stlg
 
-    def _friction_coefficient_Gunn_Darling(self, num_Re, initial_f):
-        """
-        Метод для определения коэффициента трения в турбулентном течении 
-        Upward Vertical Two-Phase Flow Through an Annulus—Part I [15-27]
-    
-        :param num_Re: число Рейнольдса, посчитанное по разным плотностям
-        """
-        right_part = (4 * m.log(num_Re* (initial_f * (16 / self.Fca) **
-                     (0.45 * m.exp(-(num_Re - 3000) / 10 ** 6))) ** 0.5) - 0.4)
-        left_part = 1 / (initial_f * (16 / self.Fca) ** (0.45 * m.exp(-(num_Re - 
-                    3000) / 10 ** 6))) ** 0.5
-
-        return right_part - left_part   
         
     def _mixture_velocity_Caetano(self, initial_f):
         """
         Метод для определения критической скорости dispersed bubbly flow
         TWO-PHASE FLOW IN VERTICAL AND INCLINED ANNULI
         """
-        right_part = 2 * (initial_f ** 1.2) * (self.friction_coeff ** 0.4) * ((2 / self.d_equ_m) **
+        right_part = 2 * (initial_f ** 1.2) * (self.friction_coeff** 0.4) * ((2 / self.d_equ_m) **
                      0.4) * ((self.rho_liq_kgm3 / self.sigma_Nm) ** 0.6 ) *(0.4 * self.sigma_Nm / (
                          (self.rho_liq_kgm3 - self.rho_gas_kgm31) * CONST.g) ** 0.5)
 
@@ -199,15 +186,8 @@ class HasanKabirAnn(FluidFlow):
                                     self.rho_gas_kgm31) / (self.rho_gas_kgm31) ** 2) ** 0.25
 
         #bubble/slug to dispersed transition [6]
-        #Upward Vertical Two-Phase Flow Through an Annulus—Part I [15-27]
-        self.Fca = (16 * (1 - self.k_ratio_d) ** 2 /
-                    ((1 - self.k_ratio_d ** 4) / (1 - self.k_ratio_d ** 2) -
-                     (1 - self.k_ratio_d ** 2) / m.log(1 / self.k_ratio_d)))
-        if self.number_Re < 3000:  # laminar flow
-            self.friction_coeff = self.Fca / self.number_Re
-        else:  # turbulent flow
-            self.friction_coeff = self.friction_coefv2(self.number_Re)
-            #self.friction_coeff = float(sp.fsolve(self._friction_coefficient_Gunn_Darling(self.number_Re), 0.000005))
+
+        self.friction_coeff = self.friction_coefv2(self.rho_m_rash_kgm3)
         self.v_m_krit2disp_msec = float(sp.fsolve(self._mixture_velocity_Caetano, 1000))
 
         self.set_flow_pattrn()
@@ -265,18 +245,6 @@ class HasanKabirAnn(FluidFlow):
         else:
             self.len_s_m = 0.25 * (C * self.v_mix_msec + self.v_d_msec) #11
             self.epsi = (1 - self.len_s_m) * self.epsi_t + 0.25 * self.vs_gas_msec #9b
-
-    def _actual_friction_coef(self, rho):
-        """
-        Метод для расчета коэффициента трения
-        :param rho: плотность смеси по различным корреляциям, кг/м3
-        """
-        self.number_Re_s = rho * self.v_mix_msec * self.d_equ_m / self.mu_mix_pasec
-        if self.number_Re_s < 3000:  # laminar flow
-            friction_coeff = self.Fca / self.number_Re_s
-        else:  # turbulent flow
-            friction_coeff = float(sp.fsolve(self._friction_coefficient_Gunn_Darling(self.number_Re_s), 0.000005))
-        return friction_coeff
 
     def _actual_film_length(self, initial_llf):
         """
@@ -393,7 +361,7 @@ class HasanKabirAnn(FluidFlow):
         if self.flow_pattern == 0: #[5-14]
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
 
-            # self.friction_coeff_s = self._actual_friction_coef(self.rho_mix_kgm3)
+
 
             self.friction_coeff_s = self.friction_coefv2(self.rho_mix_kgm3)
             self.friction_grad_pam = (4 * self.friction_coeff_s / (self.d_o_m - self.d_i_m) 
@@ -402,9 +370,7 @@ class HasanKabirAnn(FluidFlow):
             self.acceleration_grad_pam = 0
 
         elif self.flow_pattern == 1: #[15-16]
-            self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180) # две методини не согласуются, HasanKabir предлагает брать как в 
-
-            # self.friction_coeff_s = self._actual_friction_coef(self.rho_m_rash_kgm3)
+            self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
 
             self.friction_coeff_s = self.friction_coefv2(self.rho_mix_kgm3)
             self.friction_grad_pam = (4 * self.friction_coeff_s / (self.d_o_m - self.d_i_m) 
@@ -418,8 +384,6 @@ class HasanKabirAnn(FluidFlow):
 
             self.density_grad_pam = self.rho_slug_kgm3 * CONST.g * self.len_s_m #[50]
 
-            # self.friction_coeff_s = self._actual_friction_coef(self.rho_slug_kgm3)
-
             self.friction_coeff_s = self.friction_coefv2(self.rho_slug_kgm3)
             self.friction_grad_pam = ((2 * self.friction_coeff_s / self.d_equ_m * self.rho_slug_kgm3) #[53]
                                      * (self.vs_gas_msec + self.vs_liq_msec) **2 * self.len_s_m)
@@ -429,8 +393,6 @@ class HasanKabirAnn(FluidFlow):
         elif self.flow_pattern == 4:# над ускорением подумать
 
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
-
-            # self.friction_coeff_s = self._actual_friction_coef(self.rho_mix_kgm3)
 
             self.friction_coeff_s = self.friction_coefv2(self.rho_mix_kgm3)
             self.friction_grad_pam = (4 * self.friction_coeff_s / (self.d_o_m - self.d_i_m) 
@@ -483,6 +445,7 @@ if __name__ == '__main__':
     # for i in qg:
     #     flow = HasanKabirAnn(qu_gas_m3day=i,qu_liq_m3day=400)
     #     print(flow.flow_pattern_name)
+    #     print(flow.func_p_list())
 
     #     print(flow.func_p_list())
     #     flow.func_p_list()
