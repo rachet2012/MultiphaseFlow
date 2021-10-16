@@ -30,10 +30,12 @@ class HasanKabirAnn(FluidFlow):
         :param t_head: температура на устье скважины, С
         :param wct: обводненность продукции, дол.ед
         :param abseps: абсолютная шероховатость стенок трубы, м
+        :param rp: газовый фактор, м3/м3
 
         """
         self.qu_gas_m3sec = qu_gas_m3day / 86400
         self.qu_liq_m3sec = qu_liq_m3day / 86400
+        self.rp = None
         self.wct = wct
 
         self.p_head = p_head * (10 ** 5)
@@ -115,6 +117,7 @@ class HasanKabirAnn(FluidFlow):
         self.number_Re = self.rho_m_rash_kgm3 * self.v_mix_msec * self.d_equ_m / self.mu_mix_pasec
         self.k_ratio_d = self.d_i_m / self.d_o_m
         self.eps = self.abseps / self.d_o_m
+
         
     def calc_PVT(self, p, t):
         """
@@ -122,8 +125,9 @@ class HasanKabirAnn(FluidFlow):
         :param p: текущее давление, Па 
         :param t: текущая температура, К
         """
+        self.rp = self.qu_gas_m3sec / self.qu_liq_m3sec
         self.pvt_model =  {"black_oil": {"gamma_gas": 0.7, "gamma_wat": 1, "gamma_oil": 0.8,
-                                         "rp": 50,
+                                         "rp": self.rp,
                                          "oil_correlations":
                                           {"pb": "Standing", "rs": "Standing",
                                            "rho": "Standing","b": "Standing",
@@ -361,8 +365,6 @@ class HasanKabirAnn(FluidFlow):
         if self.flow_pattern == 0: #[5-14]
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
 
-
-
             self.friction_coeff_s = self.friction_coefv2(self.rho_mix_kgm3)
             self.friction_grad_pam = (4 * self.friction_coeff_s / (self.d_o_m - self.d_i_m) 
                                      * self.v_mix_msec ** 2 / 2)
@@ -379,7 +381,6 @@ class HasanKabirAnn(FluidFlow):
             self.acceleration_grad_pam = 0
             
         elif self.flow_pattern == 2 or self.flow_pattern == 3: #предположил что для slug и churn одна методика. Концентрацию воды нашел как 1 - epsi
-            
             self.rho_slug_kgm3 = self.rho_gas_kgm31 * self.epsi_s + self.rho_liq_kgm3 * (1-self.epsi_t) # В соответствии c [51] 
 
             self.density_grad_pam = self.rho_slug_kgm3 * CONST.g * self.len_s_m #[50]
@@ -391,7 +392,6 @@ class HasanKabirAnn(FluidFlow):
             self.acceleration_grad_pam = self._acceler_grad_p() 
 
         elif self.flow_pattern == 4:# над ускорением подумать
-
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
 
             self.friction_coeff_s = self.friction_coefv2(self.rho_mix_kgm3)
