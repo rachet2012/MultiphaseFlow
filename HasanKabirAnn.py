@@ -145,7 +145,8 @@ class HasanKabirAnn(FluidFlow):
         self.mu_gas_pasec = self.PVT.mug
         self.mu_liq_pasec = self.PVT.mul
         self.rho_gas_kgm31 = self.PVT.rho_gas
-        self.rho_liq_kgm3 = self.PVT.rho_wat
+        # self.rho_liq_kgm3 = self.PVT.rho_wat
+        self.rho_liq_kgm3 = self.PVT.rho_oil
         self.sigma_Nm = self.PVT.stlg
 
         
@@ -436,9 +437,9 @@ class HasanKabirAnn(FluidFlow):
 if __name__ == '__main__':
 
     #ТЕСТ
-    test2 = HasanKabirAnn(qu_gas_m3day=0,qu_liq_m3day=400)
-    print(test2.flow_pattern_name)
-    print(test2.func_p_list()) #хорошая сходимость
+    # test2 = HasanKabirAnn(qu_gas_m3day=0,qu_liq_m3day=400)
+    # print(test2.flow_pattern_name)
+    # print(test2.func_p_list()) #хорошая сходимость
     
     # qg = [i for i in range(0, 1000, 100)]
     # ql = [i for i in range(0, 1500, 100)]
@@ -447,17 +448,17 @@ if __name__ == '__main__':
     #     print(flow.flow_pattern_name)
     #     print(flow.func_p_list())
 
-    #     print(flow.func_p_list())
-    #     flow.func_p_list()
+        # print(flow.func_p_list())
+        # flow.func_p_list()
         
 
     #TEST тестовый тех режим 
   
     #2 h=2516 p0=60 pk=96 ql=62 qg=124060 d_i=73 d_o=157-15 фонтан
  
-    # test = HasanKabirAnn(qu_gas_m3day = 124060, qu_liq_m3day = 62 , p_head = 60, d_i_m = 73, d_o_m = 142)
+    test = HasanKabirAnn(qu_gas_m3day = 124060, qu_liq_m3day = 62 , p_head = 60, d_i_m = 73, d_o_m = 142, h = 2400, wct=0.14)
 
-    # print(test.func_p_list())
-    # print(test.flow_pattern_name)    
+    print(test.func_p_list())
+    print(test.flow_pattern_name)    
       
       
