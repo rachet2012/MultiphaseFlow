@@ -21,7 +21,6 @@ class HasanKabirAnn(FluidFlow):
         """
         :param qu_gas_m3day: дебит скважины по газу, м3/сут
         :param qu_liq_m3day: дебит скважины по жидкости, м3/сут
-        :param rho_gas_kgm3: плотность газа, кг/м3
         :param d_i_m: внешний диаметр НКТ, мм
         :param d_o_m: внутренний диаметр ЭК, мм
         :param theta: угол наклона скважины
