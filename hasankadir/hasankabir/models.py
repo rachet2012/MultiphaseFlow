@@ -13,7 +13,6 @@ class Database(models.Model):
     :param t_head: температура на устье скважины, С
     :param wct: обводненность продукции, дол.ед   
     """
-    
     qu_gas_m3day = models.FloatField()  
     qu_liq_m3day = models.FloatField()  
     d_i_m = models.FloatField()  
@@ -22,4 +21,7 @@ class Database(models.Model):
     p_head = models.FloatField()  
     t_head = models.FloatField()  
     wct = models.FloatField()  
-    results = models.CharField()
+    results = models.CharField(max_length=1000000)
+
+    def __str__(self):
+        return self.name

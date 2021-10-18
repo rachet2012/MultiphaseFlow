@@ -1,0 +1,43 @@
+<!DOCTYPE HTML>
+<html>
+ <head>
+  <meta charset="utf-8">
+  <title>Расчет распределения давления по затрубному пространству</title>
+ </head>
+ <body>
+
+
+ <form name="test" method="post" action="input1.php">
+  <p><b>Дебит жидкости [м3/сут]:</b><br>
+   <input type="number" size="40">
+  </p>
+  <p><b>Дебит газа [м3/сут]:</b><br>
+    <input type="number" size="40">
+   </p>
+   <p><b>Внешний диаметр НКТ[мм]:</b><br>
+    <input type="number" size="40">
+   </p>
+   <p><b>Внутренний диаметр ЭК[мм]:</b><br>
+    <input type="number" size="40">
+   </p>
+   <p><b>Глубина скважины [м]:</b><br>
+    <input type="number" size="40">
+   </p>
+   <p><b>Давление на устье скважины [атм]:</b><br>
+    <input type="number" size="40">
+   </p>
+   <p><b>Температура на устье скважины [С]:</b><br>
+    <input type="number" size="40">
+   </p>
+ </form>
+
+ <form>
+    <input name="guruweba_example_submit" type="submit" value="Отправить" />
+ </form>
+
+ <form oninput="result.value=(cm.value/2.54).toFixed(2)">
+    <p>Распределение давления и температуры: <output name="result">0</output></p>
+  </form>
+
+ </body>
+</html>
