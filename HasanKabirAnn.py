@@ -15,8 +15,8 @@ class HasanKabirAnn(FluidFlow):
     градиенты на гравитацию, трение, ускорение.
     Вычисляется распеределение давление в затрубном пространстве.
     """
-    def __init__(self, qu_gas_m3day:float = 10, qu_liq_m3day: float = 432, d_i_m: float = 5,
-                 d_o_m: float = 10,theta: float = 90, h:float = 2000, p_head:float = 5, 
+    def __init__(self, qu_gas_m3day:float = 10, qu_liq_m3day: float = 432, d_i_m: float = 73,
+                 d_o_m: float = 142,theta: float = 90, h:float = 2400, p_head:float = 15, 
                  t_head:float = 20, wct:float = 1, abseps:float = 0.1) -> None:
         """
         :param qu_gas_m3day: дебит скважины по газу, м3/сут
@@ -145,8 +145,8 @@ class HasanKabirAnn(FluidFlow):
         self.mu_gas_pasec = self.PVT.mug
         self.mu_liq_pasec = self.PVT.mul
         self.rho_gas_kgm31 = self.PVT.rho_gas
-        # self.rho_liq_kgm3 = self.PVT.rho_wat
-        self.rho_liq_kgm3 = self.PVT.rho_oil
+        self.rho_liq_kgm3 = self.PVT.rho_wat
+        # self.rho_liq_kgm3 = self.PVT.rho_oil
         self.sigma_Nm = self.PVT.stlg
 
         
@@ -423,10 +423,6 @@ class HasanKabirAnn(FluidFlow):
         p0,t0 = self.p_head, self.t_head
         h0 = 0
         h1 = self.h
-        self.calc_PVT(p0, t0)
-        self.calc_rash()
-        self.calc_pattern()
-        self.calc_rho_mix()
         steps = [i for i in range(h0, h1+50, 50)]
         sol = solve_ivp(self.grad_func, t_span=(h0, h1), y0=[p0, t0], t_eval = steps) 
         return sol.y, 
@@ -434,19 +430,20 @@ class HasanKabirAnn(FluidFlow):
 
 
 
+
 if __name__ == '__main__':
 
     #ТЕСТ
-    # test2 = HasanKabirAnn(qu_gas_m3day=0,qu_liq_m3day=400)
-    # print(test2.flow_pattern_name)
-    # print(test2.func_p_list()) #хорошая сходимость
+    test2 = HasanKabirAnn(qu_gas_m3day=19000,qu_liq_m3day=300)
+    print(test2.flow_pattern_name)
+    print(test2.func_p_list()) #хорошая сходимость
     
-    # qg = [i for i in range(0, 1000, 100)]
+    # qg = [i for i in range(0, 10000, 100)]
     # ql = [i for i in range(0, 1500, 100)]
     # for i in qg:
-    #     flow = HasanKabirAnn(qu_gas_m3day=i,qu_liq_m3day=400)
+    #     flow = HasanKabirAnn(qu_gas_m3day=i,qu_liq_m3day=150)
     #     print(flow.flow_pattern_name)
-    #     print(flow.func_p_list())
+        # print(flow.func_p_list())
 
         # print(flow.func_p_list())
         # flow.func_p_list()
@@ -456,9 +453,9 @@ if __name__ == '__main__':
   
     #2 h=2516 p0=60 pk=96 ql=62 qg=124060 d_i=73 d_o=157-15 фонтан
  
-    test = HasanKabirAnn(qu_gas_m3day = 124060, qu_liq_m3day = 62 , p_head = 60, d_i_m = 73, d_o_m = 142, h = 2400, wct=0.14)
+    # test = HasanKabirAnn(qu_gas_m3day = 124060, qu_liq_m3day = 62 , p_head = 60, d_i_m = 73, d_o_m = 142, h = 2400, wct=0.14)
 
-    print(test.func_p_list())
-    print(test.flow_pattern_name)    
+    # print(test.func_p_list())
+    # print(test.flow_pattern_name)    
       
       
