@@ -1,7 +1,16 @@
 from django.db import models
 
 # Create your models here.
-#        
+
+class Results(models.Model):
+    results2 = models.CharField(max_length=1000000)
+    flowpattern2 = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.results2
+
+
+
 class Database(models.Model):
     """
     :param qu_gas_m3day: дебит скважины по газу, м3/сут
@@ -22,6 +31,8 @@ class Database(models.Model):
     t_head = models.FloatField()  
     wct = models.FloatField()  
     results = models.CharField(max_length=1000000)
+    flowpattern = models.CharField(max_length=100)
 
     def __str__(self):
-        return self.name
+        return self.results
+
