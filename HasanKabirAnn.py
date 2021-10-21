@@ -17,7 +17,7 @@ class HasanKabirAnn(FluidFlow):
     """
     def __init__(self, qu_gas_m3day:float = 10, qu_liq_m3day: float = 432, d_i_m: float = 73,
                  d_o_m: float = 142,theta: float = 90, h:float = 2400, p_head:float = 15, 
-                 t_head:float = 20, wct:float = 0.1, abseps:float = 0.1) -> None:
+                 t_head:float = 20, wct:float = 0.1, abseps:float = 2.54) -> None:
         """
         :param qu_gas_m3day: дебит скважины по газу, м3/сут
         :param qu_liq_m3day: дебит скважины по жидкости, м3/сут
@@ -41,9 +41,9 @@ class HasanKabirAnn(FluidFlow):
         self.p_head = p_head * (101325)
         self.t_head = t_head + 273
 
-        self.abseps =abseps / 100
-        self.d_i_m = d_i_m / 100
-        self.d_o_m = d_o_m / 100
+        self.abseps =abseps / 100000
+        self.d_i_m = d_i_m / 1000
+        self.d_o_m = d_o_m / 1000
         self.h = h
         self.theta = theta
 
@@ -53,6 +53,7 @@ class HasanKabirAnn(FluidFlow):
     
         self.flow_pattern_name = None
 
+        self.rho_gas_kgm31 = None
         self.epsi = None
         self.rho_mix_kgm3 = None
 
@@ -75,7 +76,8 @@ class HasanKabirAnn(FluidFlow):
         :param p: текущее давление, Па 
         :param t: текущая температура, К
         """
-        self.rp = self.qu_gas_m3sec / self.qu_liq_m3sec
+        self.qu_oil = self.qu_liq_m3sec * (1-self.wct)
+        self.rp = self.qu_gas_m3sec / self.qu_oil
         pvt_model =  {"black_oil": {"gamma_gas": 0.7, "gamma_wat": 1, "gamma_oil": 0.8,
                                          "rp": self.rp,
                                          "oil_correlations":
@@ -90,7 +92,7 @@ class HasanKabirAnn(FluidFlow):
         PVT.calc_flow(p, t)
         self.mu_gas_pasec = PVT.mug
         self.mu_liq_pasec = PVT.mul
-        self.rho_gas_kgm31 = PVT.rho_gas
+        self.rho_gas_kgm31 = PVT.rg
         self.rho_liq_kgm3 = PVT.rl
         # self.rho_liq_kgm3 = PVT.rho_oil
         self.sigma_Nm = PVT.stlg
@@ -120,12 +122,12 @@ class HasanKabirAnn(FluidFlow):
 
         :return: коэффициент трения
         """
+        self.frict = fr.Friction(self.d_o_m)
         eps = self.abseps / self.d_o_m
         mu_mix_pasec = (self.vs_liq_msec / self.v_mix_msec * self.mu_liq_pasec 
                             + self.vs_gas_msec / self.v_mix_msec * self.mu_gas_pasec)
-        self.number_Re_s = rho * self.v_mix_msec * self.d_equ_m / mu_mix_pasec
-        self.frict = fr.Friction(self.d_o_m)
-        self.ff =self.frict.calc_norm_ff(self.number_Re_s, eps, 1)
+        self.number_Re_s = self.frict.calc_n_re(rho, self.v_mix_msec, mu_mix_pasec)
+        self.ff = self.frict.calc_norm_ff(self.number_Re_s, eps, 1)
         return self.ff
 
     def _calc_pattern(self):
@@ -142,7 +144,7 @@ class HasanKabirAnn(FluidFlow):
 
         #to annular transirion [17]
         self.vs_gas_2annular_msec = 3.1 * (self.sigma_Nm * CONST.g * (self.rho_liq_kgm3 - 
-                                    self.rho_gas_kgm31) / (self.rho_gas_kgm31) ** 2) ** 0.25
+                                    self.rho_gas_kgm31) / (self.rho_gas_kgm31) ** 2) ** 0.25 + 1
 
         #bubble/slug to dispersed transition [6]
         self.v_m_krit2disp_msec = float(sp.fsolve(self._mixture_velocity_Caetano, 1000))
@@ -298,7 +300,7 @@ class HasanKabirAnn(FluidFlow):
         
         self.rho_mix_kgm3 = self.rho_liq_kgm3 * (1 - self.epsi) + self.rho_gas_kgm31 * self.epsi
 
-    def calc_pressure_gradient(self, p, t):
+    def calc_pressure_gradient(self, p, T):
         """
         Метод для расчета градиента давления
         Upward Vertical Two-Phase Flow Through an Annulus—Part II
@@ -308,15 +310,15 @@ class HasanKabirAnn(FluidFlow):
         :return: суммарный градиент давления
         
         """
-        self.calc_PVT(p, t)
+        self.calc_PVT(p, T)
         self.calc_rho_mix()
 
         if self.flow_pattern == 0: #[5-14]
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
 
             friction_coeff_s = self._friction_coefv2(self.rho_mix_kgm3)
-            self.friction_grad_pam = (4 * friction_coeff_s / (self.d_o_m - self.d_i_m) 
-                                     * self.v_mix_msec ** 2 / 2)
+            self.friction_grad_pam = ((4 * friction_coeff_s / (self.d_equ_m ) 
+                                     * self.v_mix_msec ** 2 / 2) * self.rho_mix_kgm3)
 
             self.acceleration_grad_pam = 0
 
@@ -324,8 +326,8 @@ class HasanKabirAnn(FluidFlow):
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
 
             friction_coeff_s = self._friction_coefv2(self.rho_mix_kgm3)
-            self.friction_grad_pam = (4 * friction_coeff_s / (self.d_o_m - self.d_i_m) 
-                                     * self.v_mix_msec ** 2 / 2)
+            self.friction_grad_pam = (4 * friction_coeff_s / (self.d_equ_m ) 
+                                     * self.v_mix_msec ** 2 / 2) * self.rho_mix_kgm3
 
             self.acceleration_grad_pam = 0
             
@@ -340,43 +342,43 @@ class HasanKabirAnn(FluidFlow):
             self.friction_grad_pam = ((2 * friction_coeff_s / self.d_equ_m * self.rho_slug_kgm3) #[53]
                                      * (self.vs_gas_msec + self.vs_liq_msec) **2 * self.len_s_m)
 
-            self.acceleration_grad_pam = self._acceler_grad_p() 
+            self.acceleration_grad_pam = 0 #self._acceler_grad_p() 
 
         elif self.flow_pattern == 4:# над ускорением подумать
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
 
             friction_coeff_s = self._friction_coefv2(self.rho_mix_kgm3)
             self.friction_grad_pam = (4 * friction_coeff_s / (self.d_o_m - self.d_i_m) 
-                                     * self.v_mix_msec ** 2 / 2)
+                                     * self.v_mix_msec ** 2 / 2) * self.rho_mix_kgm3
 
-            self.acceleration_grad_pam = self._acceler_grad_p_annular()
+            self.acceleration_grad_pam = 0 #self._acceler_grad_p_annular()
 
         self.result_grad_pam = self.friction_grad_pam  + self.density_grad_pam + self.acceleration_grad_pam
 
         return self.result_grad_pam
 
-    def _grad_func(self, h, pt):
+    def _grad_func(self, h, pT):
         """
         Функция для интегрирования 
         :param pt: давление и температура, Па,К
         :h: переменная интегрирования
         """ 
-        dp_dl = self.calc_pressure_gradient(pt[0], pt[1]) 
-        dt_dl = 0.03
-        return dp_dl, dt_dl
+        dp_dl = self.calc_pressure_gradient(pT[0], pT[1]) 
+        dT_dl = 0.03
+        return dp_dl, dT_dl
 
     def func_p_list(self):
         """
         Метод для интегрирования градиента давления(расчет сверху вниз)
         :return: распределение давления и температуры по стволу скважины
         """
-        p0,t0 = self.p_head, self.t_head
+        p0,T0 = self.p_head, self.t_head
         h0 = 0
         h1 = self.h
-        steps = [i for i in range(h0, h1+50, 50)]
+        steps = [i for i in range(h0, h1+50, 300)]
         sol = solve_ivp(self._grad_func, 
             t_span=(h0, h1), 
-            y0=[p0, t0], 
+            y0=[p0, T0], 
             t_eval=steps,
             max_step=2050,
             rtol=1e-6
@@ -389,17 +391,17 @@ if __name__ == '__main__':
 
     #ТЕСТ
 
-    for i in range(0,50, 10):
+    for i in range(10,20, 10):
         rb =i
-        qu = 285 * rb
+        qu = 285 * rb *(1-0.1)
         test2 = HasanKabirAnn(qu_gas_m3day=qu, qu_liq_m3day=285)
 
         vr = test2.func_p_list()
-
-        vr1 = vr[0]
-        vr2 = vr1[0]
-        vr3= vr2[-1]
-        print(vr3/101325, i)
+        print(vr,i)
+        # vr1 = vr[0]
+        # vr2 = vr1[0]
+        # vr3= vr2[-1]
+        # print(vr3/101325, i)
         # print(vr2)
 
  #хорошая сходимость
