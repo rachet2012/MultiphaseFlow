@@ -391,7 +391,7 @@ if __name__ == '__main__':
 
     #ТЕСТ
 
-    for i in range(100,400, 100):
+    for i in range(100,200, 100):
         rb =i
 
         test2 = HasanKabirAnn(rp =rb, qu_liq_m3day=285)
