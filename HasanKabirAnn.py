@@ -215,7 +215,7 @@ class HasanKabirAnn(FluidFlow):
 
         else:
 
-            self.len_s_m = 0.25 * (self.C0 * self.v_mix_msec + v_d_msec) / self.epsi_s #11
+            # self.len_s_m = 0.25 * (self.C0 * self.v_mix_msec + v_d_msec) / self.epsi_s #11
             self.len_s_m = 0.25 * self.vs_gas_msec / self.epsi_s
             self.epsi = (1 - self.len_s_m) * self.epsi_t + 0.25 * self.vs_gas_msec #9b
 
@@ -425,74 +425,74 @@ if __name__ == '__main__':
     p4 = []
     rbb4 =[]
     
-    # for i in range(100,160, 10):
-    #     rb =i
-    #     test2 = HasanKabirAnn(rp =rb, qu_liq_m3day=285,wct = 0.4)
-    #     vr = test2.func_p_list()
-    #     vr1 = vr[0]
-    #     vr2 = vr1[0]
-    #     vr3= vr2[-1]
-    #     rbb1.append(rb)
-    #     p1.append(vr3)
-    #     print(vr3/101325, i)
-        
-        # print(vr2)
-    for i in range(0,200, 10):
+    for i in range(60,70, 10):
         rb =i
-        test2 = HasanKabirAnn(rp =rb, qu_liq_m3day=285,wct=0)
+        test2 = HasanKabirAnn(rp =rb, qu_liq_m3day=285,wct = 0)
         vr = test2.func_p_list()
         vr1 = vr[0]
         vr2 = vr1[0]
-        vr3= vr2[-1] / 101325
+        vr3= vr2[-1]
         rbb1.append(rb)
         p1.append(vr3)
-    for i in range(0,200, 10):
-        rb =i
-        test2 = HasanKabirAnn(rp =rb, qu_liq_m3day=285,wct=0.1)
-        vr = test2.func_p_list()
-        vr1 = vr[0]
-        vr2 = vr1[0]
-        vr3= vr2[-1] / 101325
-        rbb2.append(rb)
-        p2.append(vr3)
-    for i in range(0,200, 10):
-        rb =i
-        test2 = HasanKabirAnn(rp =rb, qu_liq_m3day=285,wct=0.25)
-        vr = test2.func_p_list()
-        vr1 = vr[0]
-        vr2 = vr1[0]
-        vr3= vr2[-1] / 101325
-        rbb3.append(rb)
-        p3.append(vr3)
-    for i in range(0,200, 10):
-        rb =i
-        test2 = HasanKabirAnn(rp =rb, qu_liq_m3day=285,wct=0.4)
-        vr = test2.func_p_list()
-        vr1 = vr[0]
-        vr2 = vr1[0]
-        vr3= vr2[-1] / 101325
-        rbb4.append(rb)
-        p4.append(vr3)
+        print(vr3/101325, i)
+        
+        print(vr2)
+#     for i in range(0,200, 10):
+#         rb =i
+#         test2 = HasanKabirAnn(rp =rb, qu_liq_m3day=570,wct=0.05)
+#         vr = test2.func_p_list()
+#         vr1 = vr[0]
+#         vr2 = vr1[0]
+#         vr3= vr2[-1] / 101325
+#         rbb1.append(rb)
+#         p1.append(vr3)
+#     for i in range(0,200, 10):
+#         rb =i
+#         test2 = HasanKabirAnn(rp =rb, qu_liq_m3day=570,wct=0.1)
+#         vr = test2.func_p_list()
+#         vr1 = vr[0]
+#         vr2 = vr1[0]
+#         vr3= vr2[-1] / 101325
+#         rbb2.append(rb)
+#         p2.append(vr3)
+#     for i in range(0,200, 10):
+#         rb =i
+#         test2 = HasanKabirAnn(rp =rb, qu_liq_m3day=570,wct=0.15)
+#         vr = test2.func_p_list()
+#         vr1 = vr[0]
+#         vr2 = vr1[0]
+#         vr3= vr2[-1] / 101325
+#         rbb3.append(rb)
+#         p3.append(vr3)
+#     for i in range(0,200, 10):
+#         rb =i
+#         test2 = HasanKabirAnn(rp =rb, qu_liq_m3day=570,wct=0.25)
+#         vr = test2.func_p_list()
+#         vr1 = vr[0]
+#         vr2 = vr1[0]
+#         vr3= vr2[-1] / 101325
+#         rbb4.append(rb)
+#         p4.append(vr3)
 
-    df1 = pd.DataFrame({'GOR': rbb1,
-                   'p down': p1})
+#     df1 = pd.DataFrame({'GOR': rbb1,
+#                    'p down': p1})
 
-    df2 = pd.DataFrame({'GOR': rbb2,
-                   'p down': p2})
+#     df2 = pd.DataFrame({'GOR': rbb2,
+#                    'p down': p2})
                    
-    df3 = pd.DataFrame({'GOR': rbb3,
-                   'p down': p3})
+#     df3 = pd.DataFrame({'GOR': rbb3,
+#                    'p down': p3})
 
-    df4 = pd.DataFrame({'GOR': rbb4,
-                   'p down': p4})    
+#     df4 = pd.DataFrame({'GOR': rbb4,
+#                    'p down': p4})    
 
-    salary_sheets = {'q285,wct0': df1, 'q285,wct0.1': df2, 'q285,wct0.25':df3, 'q285,wct0.4':df4}
-    writer = pd.ExcelWriter('./test2.xlsx', engine='xlsxwriter')
+#     salary_sheets = {'wct0.05': df1, 'wct0.1': df2, 'wct0.15':df3, 'wct0.25':df4}
+#     writer = pd.ExcelWriter('./test2570.xlsx', engine='xlsxwriter')
 
-for sheet_name in salary_sheets.keys():
-    salary_sheets[sheet_name].to_excel(writer, sheet_name=sheet_name, index=False)
+# for sheet_name in salary_sheets.keys():
+#     salary_sheets[sheet_name].to_excel(writer, sheet_name=sheet_name, index=False)
 
-writer.save()
+# writer.save()
 
 #     df = pd.DataFrame({'GOR': rbb,
 #                    'p down': p})
