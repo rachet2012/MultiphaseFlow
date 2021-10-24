@@ -12,7 +12,7 @@ for i in a1:
     b1.append(c1)
 
 model = Model.open(r'C:/Users/123/Desktop/rab/MultiphaseFlow/calc/MultiphaseFlow/test.pips')
-model.set_value(context= 'BOFluid 2', parameter = "WaterCut", value = 15)
+model.set_value(context= 'BOFluid 2', parameter = "WaterCut", value = 40)
 for i in b1:
     model.set_value(context= 'BOFluid 2', parameter = 'GOR', value = i) #scf/stb
 
@@ -23,7 +23,7 @@ for i in b1:
 
     parameters = {
     Parameters.PTProfileSimulation.OUTLETPRESSURE:220,  #psia
-    Parameters.PTProfileSimulation.LIQUIDFLOWRATE:3584,  #stb/d
+    Parameters.PTProfileSimulation.LIQUIDFLOWRATE:1792,  #stb/d
     Parameters.PTProfileSimulation.FLOWRATETYPE:Constants.FlowRateType.LIQUIDFLOWRATE,
     Parameters.PTProfileSimulation.CALCULATEDVARIABLE:Constants.CalculatedVariable.INLETPRESSURE,
     }
@@ -49,7 +49,18 @@ model.close()
 print(a1,res10)
 df1 = pd.DataFrame({'GOR': a1,
                     'p down': res10})
-df1.to_excel('./wct15570.xlsx')
+df1.to_excel('./wct40.xlsx')
 
+# salary_sheets = {'q285,wct0.1': df1}
+# writer = pd.ExcelWriter('./wct10.xlsx', engine='xlsxwriter')
+
+# for sheet_name in salary_sheets.keys():
+#     salary_sheets[sheet_name].to_excel(writer, sheet_name=sheet_name, index=False)
+
+# writer.save()
+
+#     df = pd.DataFrame({'GOR': rbb,
+#                    'p down': p})
+#     df.to_excel('./test.xlsx')
 
 
