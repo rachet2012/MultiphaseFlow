@@ -249,19 +249,53 @@ class HasanKabirAnn(FluidFlow):
             self.len_s_m = 0.25 * self.vs_gas_msec / self.epsi_s
             self.epsi = (1 - self.len_s_m) * self.epsi_t + 0.25 * self.vs_gas_msec #9b
 
-    def _actual_film_length(self, initial_llf):
+    def _actual_film_length(self):
         """
         Метод для вычисления фактический длины пленки жидкости в slug/churn
         Уравнение  [44]
         
         """
-        coef_b = (-2 * (1 - self.vs_gas_msec / self.v_dt_msec) * ((self.vs_gas_msec - self.v_gls #45
-                    *(1 - self.h_ls) / self.v_dt_msec)) * self.len_ls + (2 / CONST.g) * (self.v_dt_msec 
+        coef_b = (-2 * (1 - self.vs_gas_msec / self.v_dt_msec) * (((self.vs_gas_msec - self.v_gls #45
+                    *(1 - self.h_ls)) / self.v_dt_msec)) * self.len_ls + (2 / CONST.g) * (self.v_dt_msec 
                     - self.v_lls) ** 2 * self.h_ls **2) / (1 - self.vs_gas_msec / self.v_dt_msec) ** 2
 
         coef_c = (((self.vs_gas_msec - self.v_gls * (1 - self.h_ls)) / self.v_dt_msec * self.len_ls)
                         / (1 - self.vs_gas_msec / self.v_dt_msec)) ** 2
-        return initial_llf ** 2 + coef_b * initial_llf + coef_c
+        
+        discr = fabs(coef_b ** 2 - 4 * coef_c)
+        # print(discr)
+        if discr > 0 :
+            x1 = (-coef_b + m.sqrt(discr)) / 2 
+            x2 = (-coef_b - m.sqrt(discr)) / 2 
+            if x1 >= 0 and x2 < 0:
+                self.resh = x1
+            elif x2 >= 0 and x1 <0:
+                self.resh = x2
+            elif x1 >= 0 and x2 >= 0 and x1 > x2:
+                self.resh = x1
+            elif x1 >= 0 and x2 >= 0 and x1 < x2:
+                self.resh = x2
+        elif discr == 0:
+            self.resh = -coef_b / 2
+        else:
+            self.resh = 0.000001 
+
+        return self.resh
+
+    def _actual_film_length2(self,x):
+        """
+         Метод для вычисления фактический длины пленки жидкости в slug/churn
+        Уравнение  [44]
+            
+        """
+        coef_b = (-2 * (1 - self.vs_gas_msec / self.v_dt_msec) * (((self.vs_gas_msec - self.v_gls #45
+                        *(1 - self.h_ls)) / self.v_dt_msec)) * self.len_ls + (2 / CONST.g) * (self.v_dt_msec 
+                        - self.v_lls) ** 2 * self.h_ls **2) / (1 - self.vs_gas_msec / self.v_dt_msec) ** 2
+
+        coef_c = (((self.vs_gas_msec - self.v_gls * (1 - self.h_ls)) / self.v_dt_msec * self.len_ls)
+                            / (1 - self.vs_gas_msec / self.v_dt_msec)) ** 2
+
+        return x ** 2 + coef_b * x + coef_c
 
     def _acceler_grad_p(self) :
         """
@@ -277,10 +311,11 @@ class HasanKabirAnn(FluidFlow):
                     * CONST.g * self.sigma_Nm / (self.rho_liq_kgm3) ** 2) ** 0.25 * self.h_ls ** 0.5 * (1 - self.h_ls)) 
         self.v_gls = (1.53 * ((self.rho_liq_kgm3 - self.rho_gas_kgm31) * CONST.g * self.theta / (self.rho_liq_kgm3) #20
                         ** 2) ** 0.25 * self.h_ls ** 0.5) - self.v_lls
-        try:
-            self.act_len_lf = fabs(float(sp.broyden1(self._actual_film_length, 0.5)))
-        except:
-            self.act_len_lf = 0.0000001
+        # try:
+        #     self.act_len_lf = fabs(float(sp.broyden1(self._actual_film_length, 0.1)))
+        # except:
+        #     self.act_len_lf = 0.0000001
+        self.act_len_lf = self._actual_film_length()
         v_llf = (CONST.g * 2 * self.act_len_lf) ** 0.5 - self.v_dt_msec #47
         self.grad_p_acc = (self.rho_liq_kgm3 * (h_lf / len_su) * (v_llf - self.v_dt_msec) 
                     * (v_llf - self.v_lls))
@@ -473,7 +508,7 @@ if __name__ == '__main__':
     
     for i in range(0,200, 10):
         rb =i
-        test2 = HasanKabirAnn(rp =rb, qu_liq_m3day=100,wct = 0.1, h =2400)
+        test2 = HasanKabirAnn(rp =rb, qu_liq_m3day=285,wct = 0.1, h = 2400)
         vr = test2.func_p_list()
         vr1 = vr[0]
         vr2 = vr1[0]
