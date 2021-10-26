@@ -12,7 +12,7 @@ for i in a1:
     b1.append(c1)
 
 model = Model.open(r'C:/Users/123/Desktop/rab/MultiphaseFlow/calc/MultiphaseFlow/test.pips')
-model.set_value(context= 'BOFluid 2', parameter = "WaterCut", value = 40)
+model.set_value(context= 'BOFluid 2', parameter = "WaterCut", value = 10)
 for i in b1:
     model.set_value(context= 'BOFluid 2', parameter = 'GOR', value = i) #scf/stb
 
@@ -23,7 +23,7 @@ for i in b1:
 
     parameters = {
     Parameters.PTProfileSimulation.OUTLETPRESSURE:220,  #psia
-    Parameters.PTProfileSimulation.LIQUIDFLOWRATE:1792,  #stb/d
+    Parameters.PTProfileSimulation.LIQUIDFLOWRATE:628.981,  #stb/d
     Parameters.PTProfileSimulation.FLOWRATETYPE:Constants.FlowRateType.LIQUIDFLOWRATE,
     Parameters.PTProfileSimulation.CALCULATEDVARIABLE:Constants.CalculatedVariable.INLETPRESSURE,
     }
@@ -61,6 +61,6 @@ df1.to_excel('./wct40.xlsx')
 
 #     df = pd.DataFrame({'GOR': rbb,
 #                    'p down': p})
-#     df.to_excel('./test.xlsx')
+#     df.to_excel('./test7.xlsx')
 
 
