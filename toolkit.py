@@ -4,7 +4,7 @@ import pandas as pd
 import os.path
 from unifloc.tools.units_converter import _m3m3_2_scfstb, __scfstb2m3m3
 
-a1 = [i for i in range(0,200, 10)]
+a1 = [i for i in range(0,100, 10)]
 b1 = []
 res10 = []
 for i in a1:
@@ -12,7 +12,11 @@ for i in a1:
     b1.append(c1)
 
 model = Model.open(r'C:/Users/123/Desktop/rab/MultiphaseFlow/calc/MultiphaseFlow/test.pips')
+<<<<<<< Updated upstream
 model.set_value(context= 'BOFluid 2', parameter = "WaterCut", value = 10)
+=======
+model.set_value(context= 'BOFluid 2', parameter = "WaterCut", value = 99)
+>>>>>>> Stashed changes
 for i in b1:
     model.set_value(context= 'BOFluid 2', parameter = 'GOR', value = i) #scf/stb
 
@@ -49,7 +53,7 @@ model.close()
 print(a1,res10)
 df1 = pd.DataFrame({'GOR': a1,
                     'p down': res10})
-df1.to_excel('./wct40.xlsx')
+df1.to_excel('./water.xlsx')
 
 # salary_sheets = {'q285,wct0.1': df1}
 # writer = pd.ExcelWriter('./wct10.xlsx', engine='xlsxwriter')
