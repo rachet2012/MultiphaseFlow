@@ -255,8 +255,8 @@ class HasanKabirAnn(FluidFlow):
         Уравнение  [44]
         
         """
-        coef_b = (-2 * (1 - self.vs_gas_msec / self.v_dt_msec) * (((self.vs_gas_msec - self.v_gls #45
-                    *(1 - self.h_ls)) / self.v_dt_msec)) * self.len_ls + (2 / CONST.g) * (self.v_dt_msec 
+        coef_b = (-2 * (1 - self.vs_gas_msec / self.v_dt_msec) * ((self.vs_gas_msec - self.v_gls #45
+                    *(1 - self.h_ls)) / self.v_dt_msec) * self.len_ls + (2 / CONST.g) * (self.v_dt_msec 
                     - self.v_lls) ** 2 * self.h_ls **2) / (1 - self.vs_gas_msec / self.v_dt_msec) ** 2
 
         coef_c = (((self.vs_gas_msec - self.v_gls * (1 - self.h_ls)) / self.v_dt_msec * self.len_ls)
@@ -308,7 +308,7 @@ class HasanKabirAnn(FluidFlow):
         self.len_ls = 16 * self.d_equ_m #38
         len_su = self.len_ls / self.len_s_m
         self.v_lls = ((self.vs_liq_msec + self.vs_gas_msec) - 1.53 * ((self.rho_liq_kgm3 - self.rho_gas_kgm31) #23
-                    * CONST.g * self.sigma_Nm / (self.rho_liq_kgm3) ** 2) ** 0.25 * self.h_ls ** 0.5 * (1 - self.h_ls)) 
+                    * CONST.g * self.sigma_Nm / (self.rho_liq_kgm3**2)) ** 0.25 * self.h_ls ** 0.5 * (1 - self.h_ls)) 
         self.v_gls = (1.53 * ((self.rho_liq_kgm3 - self.rho_gas_kgm31) * CONST.g * self.theta / (self.rho_liq_kgm3) #20
                         ** 2) ** 0.25 * self.h_ls ** 0.5) - self.v_lls
         # try:
