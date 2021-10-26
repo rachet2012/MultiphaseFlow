@@ -188,7 +188,7 @@ class HasanKabirAnn(FluidFlow):
         if self.num_Re < 3000:  # laminar flow
             fric = self.Fca / self.num_Re
         else:  # turbulent flow
-            fric = float(sp.fsolve(self._friction_coefficient_Gunn_Darling, 0.000005))
+            fric = float(sp.fsolve(self._friction_coefficient_Gunn_Darling, 0.04))
         return fric
 
     def _set_flow_pattrn(self):
@@ -232,7 +232,7 @@ class HasanKabirAnn(FluidFlow):
         # v_d_msec = (1.53 * (CONST.g * self.sigma_Nm * (self.rho_liq_kgm3 - self.rho_gas_kgm31) 
         #                 / (self.rho_liq_kgm3)**2 ) ** 0.25) #3
 
-        self.v_dt_msec = 1.2 *(self.vs_gas_msec + self.vs_liq_msec) + 0.345 * (CONST.g * (self.d_i_m + self.d_o_m)) ** 0.5
+        self.v_dt_msec = 1.2 *(self.vs_gas_msec + self.vs_liq_msec) + 0.345 * (CONST.g * (self.d_i_m + self.d_o_m)) ** 0.5#17
 
         # self.epsi_s =0.19
         self.epsi_s = self.vs_gas_msec / (self.C0 * self.v_mix_msec + self.v_dt_msec)
@@ -262,19 +262,22 @@ class HasanKabirAnn(FluidFlow):
         coef_c = (((self.vs_gas_msec - self.v_gls * (1 - self.h_ls)) / self.v_dt_msec * self.len_ls)
                         / (1 - self.vs_gas_msec / self.v_dt_msec)) ** 2
         
-        discr = fabs(coef_b ** 2 - 4 * coef_c)
+        discr = (coef_b ** 2 - 4 * coef_c)
+        #дискриминант отрицательный, уравнение в каких то диапазонах не решается, скорости и коэффициенты считаю правильно
+
         # print(discr)
         if discr > 0 :
             x1 = (-coef_b + m.sqrt(discr)) / 2 
             x2 = (-coef_b - m.sqrt(discr)) / 2 
+            # print (x1,x2)
             if x1 >= 0 and x2 < 0:
                 self.resh = x1
             elif x2 >= 0 and x1 <0:
                 self.resh = x2
-            elif x1 >= 0 and x2 >= 0 and x1 > x2:
-                self.resh = x1
-            elif x1 >= 0 and x2 >= 0 and x1 < x2:
-                self.resh = x2
+            elif x1 > x2:
+                self.resh = 0.000001 
+            elif x1 < x2:
+                self.resh = 0.000001 
         elif discr == 0:
             self.resh = -coef_b / 2
         else:
@@ -309,14 +312,15 @@ class HasanKabirAnn(FluidFlow):
         len_su = self.len_ls / self.len_s_m
         self.v_lls = ((self.vs_liq_msec + self.vs_gas_msec) - 1.53 * ((self.rho_liq_kgm3 - self.rho_gas_kgm31) #23
                     * CONST.g * self.sigma_Nm / (self.rho_liq_kgm3**2)) ** 0.25 * self.h_ls ** 0.5 * (1 - self.h_ls)) 
-        self.v_gls = (1.53 * ((self.rho_liq_kgm3 - self.rho_gas_kgm31) * CONST.g * self.theta / (self.rho_liq_kgm3) #20
-                        ** 2) ** 0.25 * self.h_ls ** 0.5) - self.v_lls
+        self.v_gls = ((1.53 * ((self.rho_liq_kgm3 - self.rho_gas_kgm31) * CONST.g * self.theta / (self.rho_liq_kgm3**2) #20
+                        ) ** 0.25 * self.h_ls ** 0.5) + self.v_lls)
+        # print(self.v_lls,self.v_gls)
         # try:
-        #     self.act_len_lf = fabs(float(sp.broyden1(self._actual_film_length, 0.1)))
+        #     self.act_len_lf = fabs(float(sp.broyden1(self._actual_film_length2, 0.1)))
         # except:
         #     self.act_len_lf = 0.0000001
-        self.act_len_lf = self._actual_film_length()
-        v_llf = (CONST.g * 2 * self.act_len_lf) ** 0.5 - self.v_dt_msec #47
+        self.act_len_lf = (self._actual_film_length())
+        v_llf = fabs((CONST.g * 2 * self.act_len_lf) ** 0.5 - self.v_dt_msec) #47
         self.grad_p_acc = (self.rho_liq_kgm3 * (h_lf / len_su) * (v_llf - self.v_dt_msec) 
                     * (v_llf - self.v_lls))
         if self.grad_p_acc >= 0:
