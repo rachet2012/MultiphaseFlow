@@ -12,17 +12,12 @@ for i in a1:
     b1.append(c1)
 
 model = Model.open(r'C:/Users/123/Desktop/rab/MultiphaseFlow/calc/MultiphaseFlow/test.pips')
-<<<<<<< Updated upstream
 model.set_value(context= 'BOFluid 2', parameter = "WaterCut", value = 10)
-=======
-model.set_value(context= 'BOFluid 2', parameter = "WaterCut", value = 99)
->>>>>>> Stashed changes
 for i in b1:
     model.set_value(context= 'BOFluid 2', parameter = 'GOR', value = i) #scf/stb
 
     system_variables = [
             SystemVariables.PRESSURE,
-           
     ]
 
     parameters = {

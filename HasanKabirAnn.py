@@ -24,7 +24,6 @@ class HasanKabirAnn(FluidFlow):
                  d_o_m: float = 142,theta: float = 90, h:float = 2400, p_head:float = 15, 
                  t_head:float = 20, wct:float = 0.1, abseps:float = 2.54, rp = 0) -> None:
         """
-        :param qu_gas_m3day: дебит скважины по газу, м3/сут
         :param qu_liq_m3day: дебит скважины по жидкости, м3/сут
         :param rho_gas_kgm3: плотность газа, кг/м3
         :param d_i_m: внешний диаметр НКТ, мм
