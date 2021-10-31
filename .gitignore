@@ -27,3 +27,7 @@ test3w40.xlsx
 tests/test2 70.xlsx
 tests/test2 Сводный 570.xlsx
 *.xlsx
+*.pips
+annulus.py
+test2 Сводный.xlsx
+*.xlsx
