@@ -349,6 +349,8 @@ class HasanKabirAnn(FluidFlow):
             self.fri = (f_lam * (4000 - Re) + f_turb * (Re - 2000)) / 2000
         elif(Re >= 4000):
             self.fri = f_turb
+        # else:
+        #     self.fri = 1
 
         return self.fri
 
@@ -413,55 +415,87 @@ class HasanKabirAnn(FluidFlow):
 
         return self.result_grad_pam
 
-    def _grad_func(self, h, pt):
-        """
-        Функция для интегрирования 
-        :param pt: давление и температура, Па,К
-        :h: переменная интегрирования
-        """ 
-        dp_dl = self.calc_pressure_gradient(pt[0], pt[1]) 
+    # def _grad_func(self, h, pt):
+    #     """
+    #     Функция для интегрирования 
+    #     :param pt: давление и температура, Па,К
+    #     :h: переменная интегрирования
+    #     """ 
+    #     dp_dl = self.calc_pressure_gradient(pt[0], pt[1]) 
+    #     dt_dl = 0.03
+    #     return dp_dl, dt_dl
+
+    # def func_p_list(self):
+    #     """
+    #     Метод для интегрирования градиента давления(расчет сверху вниз)
+    #     :return: распределение давления и температуры по стволу скважины
+    #     """
+    #     p0,t0 = self.p_head, self.t_head
+    #     h0 = 0
+    #     h1 = self.h
+    #     steps = [i for i in range(h0, h1+50, 50)]
+    #     sol = solve_ivp(self._grad_func, 
+    #         t_span=(h0, h1), 
+    #         y0=[p0, t0], 
+    #         t_eval=steps,
+    #         max_step = 55,
+    #     ) 
+    #     return sol.y, 
+
+
+def grad_func(h, pt, d_i, d_o, r, qu_liq, wct):
+        test3 = HasanKabirAnn(d_i_m = d_i, d_o_m = d_o, rp =r, qu_liq_m3day=qu_liq,wct = wct, h = h)
+        dp_dl = test3.calc_pressure_gradient(pt[0], pt[1]) 
         dt_dl = 0.03
         return dp_dl, dt_dl
 
-    def func_p_list(self):
-        """
-        Метод для интегрирования градиента давления(расчет сверху вниз)
-        :return: распределение давления и температуры по стволу скважины
-        """
-        p0,t0 = self.p_head, self.t_head
+def func_p_list(p_head, t_head, h, d_i, d_o, rb, qu_liq, wct):
+        p0,t0 = p_head, t_head
         h0 = 0
-        h1 = self.h
+        h1 = h
         steps = [i for i in range(h0, h1+50, 50)]
-        sol = solve_ivp(self._grad_func, 
+        sol = solve_ivp(grad_func, 
             t_span=(h0, h1), 
             y0=[p0, t0], 
             t_eval=steps,
             max_step = 55,
+            args=(d_i, 
+            d_o,
+            rb,
+            qu_liq, 
+            wct,)
         ) 
         return sol.y, 
 
 if __name__ == '__main__':
 
-    #ТЕСТ
-    p1 = []
-    rbb1 =[]
-    p2 = []
-    rbb2 =[]
-    p3 = []
-    rbb3 =[]
-    p4 = []
-    rbb4 =[]
-    
-    for i in range(0,400, 10):
-        rb =i
-        test2 = HasanKabirAnn(d_i_m = 73, d_o_m = 142, rp =rb, qu_liq_m3day=600,wct = 0.25, h = 2500)
-        vr = test2.func_p_list()
-        vr1 = vr[0]
+    for i in range(0, 400,10):
+        tt = func_p_list(15, 293, 2400, 73, 142, i, 600, 0.25)
+        vr1 = tt[0]
         vr2 = vr1[0]
         vr3= vr2[-1]
-        rbb1.append(rb)
-        p1.append(vr3)
         print(vr3/101325)
+
+    # ТЕСТ
+    # p1 = []
+    # rbb1 =[]
+    # p2 = []
+    # rbb2 =[]
+    # p3 = []
+    # rbb3 =[]
+    # p4 = []
+    # rbb4 =[]
+    
+    # for i in range(0,400, 10):
+    #     rb =i
+    #     test2 = HasanKabirAnn(d_i_m = 73, d_o_m = 142, rp =rb, qu_liq_m3day=600,wct = 0.25, h = 2500)
+    #     vr = test2.func_p_list()
+    #     vr1 = vr[0]
+    #     vr2 = vr1[0]
+    #     vr3= vr2[-1]
+    #     rbb1.append(rb)
+    #     p1.append(vr3)
+    #     print(vr3/101325)
         
         # print(vr2)
     # for i in range(0,200, 10):
