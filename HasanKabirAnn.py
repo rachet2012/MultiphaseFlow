@@ -266,6 +266,10 @@ class HasanKabirAnn(FluidFlow):
             v_llf = fabs((CONST.g * 2 * self.act_len_lf) ** 0.5 - self.v_dt_msec) #47
             self.grad_p_acc = (self.rho_liq_kgm3 * (h_lf / len_su) * (v_llf - self.v_dt_msec) 
                     * (v_llf - self.v_lls))
+            if self.grad_p_acc < 0:
+                self.grad_p_acc = 0
+            else:
+                self.grad_p_acc = self.grad_p_acc
         except:
             self.grad_p_acc = 0
         return self.grad_p_acc
@@ -383,6 +387,7 @@ class HasanKabirAnn(FluidFlow):
                                      * (self.vs_gas_msec + self.vs_liq_msec) **2 * self.len_s_m)
 
             self.acceleration_grad_pam = self._acceler_grad_p() 
+            # self.acceleration_grad_pam = 0
 
         elif self.flow_pattern == 4:# над ускорением подумать
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
@@ -447,9 +452,9 @@ if __name__ == '__main__':
     p4 = []
     rbb4 =[]
     
-    for i in range(0,1000, 25):
+    for i in range(0,400, 10):
         rb =i
-        test2 = HasanKabirAnn(d_i_m = 139, d_o_m = 229.5, rp =rb, qu_liq_m3day=100,wct = 0.1, h = 4500)
+        test2 = HasanKabirAnn(d_i_m = 73, d_o_m = 142, rp =rb, qu_liq_m3day=600,wct = 0.25, h = 2500)
         vr = test2.func_p_list()
         vr1 = vr[0]
         vr2 = vr1[0]
