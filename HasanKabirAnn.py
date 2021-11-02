@@ -1,23 +1,23 @@
 import math as m
 import numpy as np
-from numpy.core.fromnumeric import put
 import scipy.constants as CONST
 import scipy.optimize as sp
 from scipy.integrate import solve_ivp
 from unifloc.pvt.fluid_flow import FluidFlow
 import unifloc.pipe._friction as fr
-from math import fabs
 import pandas as pd
 import warnings
 
+
 warnings.filterwarnings("ignore", category=RuntimeWarning) 
 
+
+#TODO fsolve(экспоненты и логарифм, пока подходит только fsolve), по идее траекторию привязывать как и PVT
 class HasanKabirAnn():
     """
-    Класс для расчета градиента давления в затрубном пространстве
+    Класс для расчета градиента давления в затрубном пространстве по корреляции HasanKabir/CaetanoBrill
     Определяются структура потока, истинная концентрация газа, плотность смеси,
     градиенты на гравитацию, трение, ускорение.
-    Вычисляется распеределение давление в затрубном пространстве.
     """
 
     def __init__(self, fluid ,  d_i_m: float = 73, d_o_m: float = 142,
@@ -26,26 +26,36 @@ class HasanKabirAnn():
         :param fluid: PVT модель флюида
         :param d_i_m: внешний диаметр НКТ, мм
         :param d_o_m: внутренний диаметр ЭК, мм
-        :param theta: угол наклона скважины
-        :param abseps: абсолютная шероховатость стенок трубы, м
+        :param theta: угол наклона скважины, градусы
+        :param abseps: абсолютная шероховатость стенок трубы, м^10-5
+        :param d_equ_m: эквивалентный диаметр затрубного пространства, м2
+        :param k_ratio_d: отношение внешнего диаметра НКТ к внутреннему диаметру ЭК, дол.ед
         """
         self.fluid = fluid
 
-        self.abseps =abseps / 100000
         self.d_i_m = d_i_m / 1000
         self.d_o_m = d_o_m / 1000
         self.theta = theta
-        
+        self.abseps =abseps / 100000
 
-    def calc_par(self):
-        f_m2 =  CONST.pi * ((self.d_o_m/2)**2 - (self.d_i_m/2)**2)
         self.d_equ_m = self.d_o_m - self.d_i_m
+        self.k_ratio_d = self.d_i_m / self.d_o_m
+        
+    def _calc_par(self):
+        """
+        Метод расчета дополнительных параметров, необходимых для расчета градиента давления в трубе
+        по методике Hasan Kabir
+
+        :param f_m2: площадь сечения затрубного пространства, м2
+        :param vs_gas_msec: приведенная скорость газа, м/с
+        :param vs_liq_msec: приведенная скорость жидкости, м/с
+        :param v_mix_msec: приведенная скорость смеси, м/с
+        """
+        f_m2 =  CONST.pi * ((self.d_o_m/2)**2 - (self.d_i_m/2)**2)
         self.vs_gas_msec = self.fluid.qg / f_m2
         self.vs_liq_msec = self.fluid.ql / f_m2
         self.v_mix_msec = (self.fluid.qg + self.fluid.ql) / f_m2
-        self.k_ratio_d = self.d_i_m / self.d_o_m
-
-
+        
     def _mixture_velocity_Caetano(self, initial_f):
         """
         Метод для определения критической скорости dispersed bubbly flow
@@ -54,7 +64,7 @@ class HasanKabirAnn():
         rho_m_rash_kgm3 = (self.fluid.qg / (self.fluid.qg + self.fluid.ql) 
                                 * self.fluid.rg + (1 - self.fluid.qg / (self.fluid.qg + 
                                 self.fluid.ql)) * self.fluid.rl)
-        friction_coeff = self._friction_coefv2(rho_m_rash_kgm3)
+        friction_coeff = self._actual_friction_coef(rho_m_rash_kgm3)
         right_part = 2 * (initial_f ** 1.2) * (friction_coeff** 0.4) * ((2 / self.d_equ_m) **
                      0.4) * ((self.fluid.rl/ self.fluid.stlg) ** 0.6 ) *(0.4 * self.fluid.stlg / (
                          (self.fluid.rl- self.fluid.rg) * CONST.g) ** 0.5)
@@ -72,21 +82,6 @@ class HasanKabirAnn():
                     3000) / 10 ** 6))) ** 0.5
         return right_part - left_part  
 
-
-    def _friction_coefv2(self, rho):
-        """
-        Метод для определения коэффициента трения
-        :param rho: фактическая плотность ГЖС
-        :return: коэффициент трения
-        """
-        frict = fr.Friction(self.d_o_m)
-        eps = self.abseps / self.d_o_m
-        mu_mix_pasec = (self.vs_liq_msec / self.v_mix_msec * self.fluid.mul 
-                            + self.vs_gas_msec / self.v_mix_msec * self.fluid.mug)
-        number_Re_s = frict.calc_n_re(rho, self.v_mix_msec, mu_mix_pasec)
-        ff = frict.calc_norm_ff(number_Re_s, eps, 1)
-        return ff
-
     def _calc_pattern(self):
         """
         Метод для расчета критических значений скоростей
@@ -102,19 +97,17 @@ class HasanKabirAnn():
         self.vs_gas_2annular_msec = (3.1 * (self.fluid.stlg * CONST.g * (self.fluid.rl- 
                                     self.fluid.rg) / (self.fluid.rg) ** 2) ** 0.25 + 1)
         #bubble/slug to dispersed transition [6]
-        try:
-            self.v_m_krit2disp_msec = fabs(float(sp.fsolve(self._mixture_velocity_Caetano, 6, maxfev=20)))
-        except:
-            self.v_m_krit2disp_msec = 10
-
+        self.v_m_krit2disp_msec = sp.fsolve(self._mixture_velocity_Caetano, 6, maxfev=5)
         self._set_flow_pattrn()
 
     def _actual_friction_coef(self, rho):
         """
         Метод для расчета коэффициента трения
-        :param rho: плотность смеси по различным корреляциям, кг/м3
+        :param rho: плотность ГЖС, кг/м3
+
+        :return: коэффициент трения, безразмерн.
         """
-        frict = fr.Friction(self.d_o_m)
+        frict = fr.Friction(self.d_equ_m)
         mu_mix_pasec = (self.vs_liq_msec / self.v_mix_msec * self.fluid.mul 
                             + self.vs_gas_msec / self.v_mix_msec * self.fluid.mug)
         self.num_Re = frict.calc_n_re(rho, self.v_mix_msec, mu_mix_pasec)
@@ -124,28 +117,28 @@ class HasanKabirAnn():
         if self.num_Re < 3000:  # laminar flow
             fric = self.Fca / self.num_Re
         else:  # turbulent flow
-            fric = float(sp.fsolve(self._friction_coefficient_Gunn_Darling, 0.02))
+            fric = sp.fsolve(self._friction_coefficient_Gunn_Darling, 0.021, maxfev=5)
         return fric
 
     def _set_flow_pattrn(self):
         """
         Метод для определения структуры потока
         """
-        if self.vs_gas_msec >= self.vs_gas_2annular_msec and 1000 > 10000:
-            self.flow_pattern = 4
-            self.flow_pattern_name = 'Annular flow pattern - Кольцевой режим'
-        elif self.vs_gas_msec <= self.vs_gas_bubble2slug_msec and self.v_mix_msec < self.v_m_krit2disp_msec:
+        if self.vs_gas_msec <= self.vs_gas_bubble2slug_msec:
             self.flow_pattern = 0
             self.flow_pattern_name = 'Bubble flow pattern - пузырьковый режим'
         elif self.vs_gas_msec >= self.vs_gas_bubble2slug_msec and (0.25 * self.vs_gas_msec) < 0.52 and self.v_mix_msec < self.v_m_krit2disp_msec:
             self.flow_pattern = 2
             self.flow_pattern_name = 'Slug flow pattern - Пробковый режим'
-        elif self.vs_gas_msec >= self.vs_gas_bubble2slug_msec and (0.25 * self.vs_gas_msec) >= 0.52:
+        elif self.vs_gas_msec >= self.vs_gas_bubble2slug_msec and (0.25 * self.vs_gas_msec) >= 0.52 :
             self.flow_pattern = 3
             self.flow_pattern_name = 'Chug flow pattern - Вспененный режим'
         elif self.v_mix_msec >= self.v_m_krit2disp_msec:
             self.flow_pattern = 1
-            self.flow_pattern_name = 'Dispersed bubble flow pattern - дисперсионно-пузырьковый режим'       
+            self.flow_pattern_name = 'Dispersed bubble flow pattern - дисперсионно-пузырьковый режим'  
+        elif self.vs_gas_msec >= self.vs_gas_2annular_msec :
+            self.flow_pattern = 4
+            self.flow_pattern_name = 'Annular flow pattern - Кольцевой режим'
 
     def _calc_bubbly(self) -> float:
         """
@@ -164,10 +157,8 @@ class HasanKabirAnn():
                         (CONST.g * (self.d_i_m + self.d_o_m)) ** 0.5 
                         * np.sin(self.theta * np.pi/180) ** 0.5 
                         * (1 + np.cos(self.theta * np.pi/180)) ** 1.2)#17
-
         self.epsi_s = self.vs_gas_msec / (1.2 * self.v_mix_msec + self.v_dt_msec)
         self.epsi_t = self.vs_gas_msec / (1.15 * self.v_mix_msec + self.v_dt_msec) #7
-
         if self.vs_gas_msec > 0.4:
             self.len_s_m = 0.1 / self.epsi_s 
             self.epsi = (1 - self.len_s_m) * self.epsi_t + 0.1  #9a
@@ -179,41 +170,41 @@ class HasanKabirAnn():
         """
         Метод для вычисления фактический длины пленки жидкости в slug/churn
         Уравнение  [44]
-        
+
+        :return: фактическую длину пленки жидкости в slug/churn, м
         """
         coef_b = (-2 * (1 - self.vs_gas_msec / self.v_dt_msec) * ((self.vs_gas_msec - self.v_gls #45
                     *(1 - self.h_ls)) / self.v_dt_msec) * self.len_ls + (2 / CONST.g) * (self.v_dt_msec 
                     - self.v_lls) ** 2 * self.h_ls **2) / (1 - self.vs_gas_msec / self.v_dt_msec) ** 2
-
         coef_c = (((self.vs_gas_msec - self.v_gls * (1 - self.h_ls)) / self.v_dt_msec * self.len_ls)
                         / (1 - self.vs_gas_msec / self.v_dt_msec)) ** 2
-        
         discr = (coef_b ** 2 - 4 * coef_c)
         #дискриминант отрицательный, уравнение в каких то диапазонах не решается
         if discr > 0 :
             x1 = (-coef_b + m.sqrt(discr)) / 2 
             x2 = (-coef_b - m.sqrt(discr)) / 2 
             if x1 >= 0 and x2 < 0:
-                self.resh = x1
+                resh = x1
             elif x2 >= 0 and x1 <0:
-                self.resh = x2
+                resh = x2
             elif x1 < 0 and x2 < 0:
-                self.resh = 0.000001 
+                resh = 0.000001 
             elif x1 > x2:
-                self.resh = 0.000001 
+                resh = x2 
             elif x1 < x2:
-                self.resh = 0.000001 
+                resh = x1
         elif discr == 0:
-            self.resh = -coef_b / 2
+            resh = -coef_b / 2
         else:
-            self.resh = 0.000001 
-        return self.resh
+            resh = 0.000001 
+        return resh
 
     def _acceler_grad_p(self) :
         """
         Метод для нахождения градиента давления на ускорения в churn и slug flow
         [20,23,38,44,47] 
-        :return: градиент давления на ускорение
+
+        :return: градиент давления на ускорение в churn и slug flow, Па/м
         """
         self.h_ls = 1 - self.epsi_s
         h_lf = 1 - self.epsi_t
@@ -223,9 +214,8 @@ class HasanKabirAnn():
                     * CONST.g * self.fluid.stlg / (self.fluid.rl**2)) ** 0.25 * self.h_ls ** 0.5 * (1 - self.h_ls)) 
         self.v_gls = ((1.53 * ((self.fluid.rl- self.fluid.rg) * CONST.g * self.fluid.stlg / (self.fluid.rl**2) #20
                         ) ** 0.25 * self.h_ls ** 0.5) + self.v_lls)
-
         act_len_lf = (self._actual_film_length())
-        v_llf = fabs((CONST.g * 2 * act_len_lf) ** 0.5 - self.v_dt_msec) #47
+        v_llf = m.fabs((CONST.g * 2 * act_len_lf) ** 0.5 - self.v_dt_msec) #47
         grad_p_acc = (self.fluid.rl* (h_lf / len_su) * (v_llf - self.v_dt_msec) 
                     * (v_llf - self.v_lls))
         if grad_p_acc < 0:
@@ -237,35 +227,29 @@ class HasanKabirAnn():
     def _acceler_grad_p_annular(self):
         """
         Метод для расчета потерь на ускорения в кольцевом режиме потока
+
+        :return: градиент давления на ускорение в кольцевом режиме потока, Па/м
         """
-        self.v_dt_msec = (0.345 + 0.1 * (self.d_i_m / self.d_o_m)) *((CONST.g * self.d_o_m * (
+        v_dt_msec = (0.345 + 0.1 * (self.d_i_m / self.d_o_m)) *((CONST.g * self.d_o_m * (
                         self.fluid.rl- self.fluid.rg)/(self.fluid.rg)) ** 0.5)
         len_su = 1
         act_len_lf = len_su
-        v_llf = (CONST.g * 2 * act_len_lf) ** 0.5 - self.v_dt_msec
-        grad_p_acc_an = (self.fluid.rl* (self.hl_total / len_su) * (v_llf - self.v_dt_msec) 
+        v_llf = (CONST.g * 2 * act_len_lf) ** 0.5 - v_dt_msec
+        grad_p_acc_an = (self.fluid.rl* (self.hl_total / len_su) * (v_llf - v_dt_msec) 
                     * v_llf)
         return grad_p_acc_an
-
-    def _ratio_t(self):
-        """
-        Метод для вычисления отношения толщины пленок жидкости в кольцевом потоке [87,88]
-        :return:
-        
-        """
-        angle_wt_average = (1 / (1 - self.k_ratio_d ** 2) * (2 * m.asin(self.k_ratio_d) + 2 * #[88]
-                             self.k_ratio_d  * (1 - self.k_ratio_d ** 2) ** 0.5 - CONST.pi * 
-                            self.k_ratio_d ** 2))
-        t_ratio = angle_wt_average / ((2 * CONST.pi - angle_wt_average) * self.k_ratio_d)
-        return t_ratio
 
     def _calc_hl_total_annular(self):
         """
         Метод для вычисления концентрации газа в потоке кольцевой структуры[77]
-        Допустил, что толщина пленки жидкости на внешней(или внутренней) трубе известна()
+        Допустил, что толщина пленки жидкости на внешней(или внутренней) трубе известна
         """
         delta_o = 0.005
-        delta_i = delta_o * self._ratio_t()
+        angle_wt_average = (1 / (1 - self.k_ratio_d ** 2) * (2 * m.asin(self.k_ratio_d) + 2 * #[88]
+                             self.k_ratio_d  * (1 - self.k_ratio_d ** 2) ** 0.5 - CONST.pi * 
+                            self.k_ratio_d ** 2))
+        t_ratio = angle_wt_average / ((2 * CONST.pi - angle_wt_average) * self.k_ratio_d)
+        delta_i = delta_o * t_ratio
         phi = (10 ** 4 * self.vs_gas_msec * self.fluid.mug / self.fluid.stlg * (self.fluid.rg #[79]
                     / self.fluid.rl) ** 0.5)
         fe = 1 - m.exp((phi - 1.5) * (-0.125))
@@ -283,52 +267,26 @@ class HasanKabirAnn():
         self._calc_pattern()
         if self.flow_pattern == 0 or self.flow_pattern == 1:
             self._calc_bubbly()
-        elif self.flow_pattern == 2:
-            self._calc_slug_churn()
-        elif self.flow_pattern == 3: 
+        elif self.flow_pattern == 2 or self.flow_pattern == 3:
             self._calc_slug_churn()
         elif self.flow_pattern == 4:
             self._calc_hl_total_annular()
-        self.rho_mix_kgm3 = self.fluid.rl* (1 - self.epsi) + self.fluid.rg * self.epsi
-
-    def fanning_f(self,rho) :
-        frict = fr.Friction(self.d_o_m)
-        mu_mix_pasec = (self.vs_liq_msec / self.v_mix_msec * self.fluid.mul 
-                            + self.vs_gas_msec / self.v_mix_msec * self.fluid.mug)
-        Re = frict.calc_n_re(rho, self.v_mix_msec, mu_mix_pasec)
-        abs_rough = self.abseps * 3.281
-        d = self.d_equ_m * 3.281
-        f_lam = (16 * (1 - self.k_ratio_d) ** 2 /
-                ((1 - self.k_ratio_d ** 4) / (1 - self.k_ratio_d ** 2) -
-                (1 - self.k_ratio_d ** 2) / m.log(1 / self.k_ratio_d)))
-        inv_sqrt_f = -4 * np.log10(0.2698 * (abs_rough / d) - (5.0452 / Re) * np.log10(.3539 * (abs_rough / d)**1.1098 + 5.8506 / Re**.8981))
-        f_turb = (1 / inv_sqrt_f)**2
-    
-        if(Re <= 2000):
-            fri = f_lam
-        elif((Re > 2000) & (Re < 4000)):
-            fri = (f_lam * (4000 - Re) + f_turb * (Re - 2000)) / 2000
-        elif(Re >= 4000):
-            fri = f_turb
-        return fri
+        self.rho_mix_kgm3 = self.fluid.rl * (1 - self.epsi) + self.fluid.rg * self.epsi
 
     def calc_pressure_gradient(self):
         """
         Метод для расчета градиента давления
         Upward Vertical Two-Phase Flow Through an Annulus—Part II
-        :param p: текущее давление, Па 
-        :param t: текущая температура, К
-        :return: суммарный градиент давления
+
+        :return: суммарный градиент давления, Па/м
         
         """
-        self.calc_par()
+        self._calc_par()
         self.calc_rho_mix()  
 
         if self.flow_pattern == 0 or self.flow_pattern == 1: #[5-14]
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
 
-            # friction_coeff_s = self._friction_coefv2(self.rho_mix_kgm3)
-            # friction_coeff_s = self.fanning_f(self.rho_mix_kgm3)
             friction_coeff_s = self._actual_friction_coef(self.rho_mix_kgm3)
             self.friction_grad_pam = ((4 * friction_coeff_s / (self.d_equ_m ) 
                                      * self.v_mix_msec ** 2 / 2) * self.rho_mix_kgm3)
@@ -340,15 +298,13 @@ class HasanKabirAnn():
 
             self.density_grad_pam = self.rho_slug_kgm3 * CONST.g  * self.len_s_m *  np.sin(self.theta * np.pi/180) #[50]
 
-            # friction_coeff_s =  self._friction_coefv2(self.rho_slug_kgm3)
-            # friction_coeff_s = self.fanning_f(self.rho_slug_kgm3)
             friction_coeff_s = self._actual_friction_coef(self.rho_slug_kgm3)
             self.friction_grad_pam = ((2 * friction_coeff_s / self.d_equ_m * self.rho_slug_kgm3) #[53]
                                      * (self.vs_gas_msec + self.vs_liq_msec) **2 * self.len_s_m)
 
             self.acceleration_grad_pam = self._acceler_grad_p() 
 
-        elif self.flow_pattern == 4:# над ускорением подумать
+        elif self.flow_pattern == 4: #методику не приводят
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
 
             friction_coeff_s = self._actual_friction_coef(self.rho_mix_kgm3)
@@ -357,16 +313,30 @@ class HasanKabirAnn():
 
             self.acceleration_grad_pam = self._acceler_grad_p_annular()
 
-
         self.result_grad_pam = self.friction_grad_pam  + self.density_grad_pam + self.acceleration_grad_pam
 
         return self.result_grad_pam
 
 
-
 if __name__ == '__main__':
 
-    def grad_func(h, pt, d_i, d_o, rp, ql, wct):
+    def grad_func(h, pt, d_i, d_o, rp, qu_liq, wct):
+        """
+        Функция для интегрирования трубы
+
+        :param h: текущая глубина, м
+        :param pt: текущее давление, Па и текущая температура, К
+        :param d_i: внешний диаметр НКТ, мм
+        :param d_o: внутренний диаметр ЭК, мм
+        :param rp: газовый фактор, м3/м3        
+        :param qu_liq: дебит жидкости, м3/сут
+        :param wct: обводненность продукции, дол.ед
+
+        :return: градиент давления в заданной точке трубы
+        при заданных термобарических условиях, Па/м
+        :return: градиент температуры в заданной точке трубы
+        при заданных термобарических условиях, К/м
+        """
         pvt_model =  {"black_oil": {"gamma_gas": 0.7, "gamma_wat": 1, "gamma_oil": 0.8,
                                         "rp": rp,
                                         "oil_correlations":
@@ -377,7 +347,7 @@ if __name__ == '__main__':
                                                 "z": "Dranchuk", "mu": "Lee"},
                             "water_correlations": {"b": "McCain", "compr": "Kriel",
                                                     "rho": "Standing", "mu": "McCain"}}}
-        PVT = FluidFlow(ql/86400, wct, pvt_model)
+        PVT = FluidFlow(qu_liq/86400, wct, pvt_model)
         PVT.calc_flow(pt[0],pt[1])
         test3 = HasanKabirAnn(d_i_m = d_i, d_o_m = d_o, fluid = PVT)
         dp_dl = test3.calc_pressure_gradient() 
@@ -385,6 +355,20 @@ if __name__ == '__main__':
         return dp_dl, dt_dl
 
     def func_p_list(p_head, t_head, h, d_i, d_o, rp, qu_liq, wct):
+        """
+        Функция для интегрирования давления, температуры в трубе
+
+        :param p_head: давление на устье, атм
+        :param t_head: температура на устье, К
+        :param h: граничная глубина, м
+        :param d_i: внешний диаметр НКТ, мм
+        :param d_o: внутренний диаметр ЭК, мм
+        :param rp: газовый фактор, м3/м3        
+        :param qu_liq: дебит жидкости, м3/сут
+        :param wct: обводненность продукции, дол.ед
+
+        :return: массив температур, К, массив давлений, Па
+        """
         p0,t0 = p_head, t_head
         h0 = 0
         h1 = h
