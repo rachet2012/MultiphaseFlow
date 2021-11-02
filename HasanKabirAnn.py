@@ -318,7 +318,7 @@ class HasanKabirAnn():
 
 if __name__ == '__main__':
 
-    def grad_func(h, pt, d_i, d_o, rp, qu_liq, wct, MD, TVD, absep):
+    def grad_func(h, pt, d_i, d_o, PVT, traj, absep):
         """
         Функция для интегрирования трубы
 
@@ -326,42 +326,27 @@ if __name__ == '__main__':
         :param pt: текущее давление, Па и текущая температура, К
         :param d_i: внешний диаметр НКТ, мм
         :param d_o: внутренний диаметр ЭК, мм
-        :param rp: газовый фактор, м3/м3        
-        :param qu_liq: дебит жидкости, м3/сут
-        :param wct: обводненность продукции, дол.ед
+        :param PVT: объект с PVT моделью      
+        :param traj: объект с инклинометрией
+        :param wct: абсолютная шероховатость стенок трубы, м*10^-5
 
         :return: градиент давления в заданной точке трубы
         при заданных термобарических условиях, Па/м
         :return: градиент температуры в заданной точке трубы
         при заданных термобарических условиях, К/м
         """
-        trajectory = tr.Trajectory(pd.DataFrame(columns=["MD", "TVD"],
-                                        data=[[0, 0], [1400, 1400],
-                                        [1800, 1800], [MD, TVD]]))
         h_steps = [0]
         h_steps.append(h)
-        h_prev = h_steps[-2]
-        h_next = h_steps[-1]
-        theta = trajectory.calc_angle(h_prev,h_next)
+        h_prev = h_steps[-1]
+        theta = traj.calc_angle(h_prev,h)
         print(theta)
-        pvt_model =  {"black_oil": {"gamma_gas": 0.7, "gamma_wat": 1, "gamma_oil": 0.8,
-                                        "rp": rp,
-                                        "oil_correlations":
-                                        {"pb": "Standing", "rs": "Standing",
-                                        "rho": "Standing","b": "Standing",
-                                        "mu": "Beggs", "compr": "Vasquez"},
-                            "gas_correlations": {"ppc": "Standing", "tpc": "Standing",
-                                                "z": "Dranchuk", "mu": "Lee"},
-                            "water_correlations": {"b": "McCain", "compr": "Kriel",
-                                                    "rho": "Standing", "mu": "McCain"}}}
-        PVT = FluidFlow(qu_liq/86400, wct, pvt_model)
         PVT.calc_flow(pt[0],pt[1])
         test3 = HasanKabirAnn(d_i_m = d_i, d_o_m = d_o, fluid = PVT, theta=theta, abseps= absep)
         dp_dl = test3.calc_pressure_gradient() 
         dt_dl = 0.03
         return dp_dl, dt_dl
 
-    def func_p_list(p_head, t_head, h, d_i, d_o, rp, qu_liq, wct, md, absep):
+    def func_p_list(p_head, t_head, h, d_i, d_o, PVT, traj, absep):
         """
         Функция для интегрирования давления, температуры в трубе
 
@@ -370,9 +355,9 @@ if __name__ == '__main__':
         :param h: граничная глубина, м
         :param d_i: внешний диаметр НКТ, мм
         :param d_o: внутренний диаметр ЭК, мм
-        :param rp: газовый фактор, м3/м3        
-        :param qu_liq: дебит жидкости, м3/сут
-        :param wct: обводненность продукции, дол.ед
+        :param PVT: объект с PVT моделью      
+        :param traj: объект с инклинометрией
+        :param wct: абсолютная шероховатость стенок трубы, м*10^-5
 
         :return: массив температур, К, массив давлений, Па
         """
@@ -387,16 +372,47 @@ if __name__ == '__main__':
             max_step = 55,
             args=(d_i, 
             d_o,
-            rp,
-            qu_liq, 
-            wct,
-            md, h,
+            PVT,
+            traj,
             absep,)
         ) 
         return sol.y, 
     
+
+#TECT
     for i in range(0, 10,10):
-        tt = func_p_list(p_head = 15, t_head=293, h=2400, d_i = 73, d_o=142, rp=i, qu_liq=600, wct=0.4, md =2400,  absep= 2.54)
+        rp=i
+        qu_liq_r=600 
+        wct_r=0.4 
+
+        p_head_r = 15 
+        t_head_r=293 
+    
+        d_i_r = 73
+        d_o_r=142 
+        
+        h_r=2400
+        md_r =2400 
+        absep_r = 2.54
+
+        pvt_model =  {"black_oil": {"gamma_gas": 0.7, "gamma_wat": 1, "gamma_oil": 0.8,
+                                        "rp": rp,
+                                        "oil_correlations":
+                                        {"pb": "Standing", "rs": "Standing",
+                                        "rho": "Standing","b": "Standing",
+                                        "mu": "Beggs", "compr": "Vasquez"},
+                            "gas_correlations": {"ppc": "Standing", "tpc": "Standing",
+                                                "z": "Dranchuk", "mu": "Lee"},
+                            "water_correlations": {"b": "McCain", "compr": "Kriel",
+                                                    "rho": "Standing", "mu": "McCain"}}}
+        pvt = FluidFlow(qu_liq_r/86400, wct_r, pvt_model)
+        
+        trajectory = tr.Trajectory(pd.DataFrame(columns=["MD", "TVD"],
+                                        data=[[0, 0], [1400, 1400],
+                                        [1800, 1800], [md_r, h_r]]))
+
+        tt = func_p_list(p_head = p_head_r, t_head=t_head_r, h=h_r, d_i = d_i_r, d_o=142,
+                         PVT=pvt, traj=trajectory,  absep= absep_r)
         vr1 = tt[0]
         vr2 = vr1[0]
         vr3= vr2[-1]
