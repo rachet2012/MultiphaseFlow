@@ -292,7 +292,6 @@ class HasanKabirAnn():
                                      * self.v_mix_msec ** 2 / 2) * self.rho_mix_kgm3)
 
             self.acceleration_grad_pam = 0
-            
         elif self.flow_pattern == 2 or self.flow_pattern == 3 : 
             self.rho_slug_kgm3 = self.fluid.rg * self.epsi_s + self.fluid.rl* (1 - self.epsi_s) # В соответствии c [51] 
 
@@ -303,7 +302,6 @@ class HasanKabirAnn():
                                      * (self.vs_gas_msec + self.vs_liq_msec) **2 * self.len_s_m)
 
             self.acceleration_grad_pam = self._acceler_grad_p() 
-
         elif self.flow_pattern == 4: #методику не приводят
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
 
@@ -314,7 +312,6 @@ class HasanKabirAnn():
             self.acceleration_grad_pam = self._acceler_grad_p_annular()
 
         self.result_grad_pam = self.friction_grad_pam  + self.density_grad_pam + self.acceleration_grad_pam
-
         return self.result_grad_pam
 
 
