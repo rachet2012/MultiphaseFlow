@@ -7,7 +7,7 @@ from unifloc.pvt.fluid_flow import FluidFlow
 import unifloc.pipe._friction as fr
 import pandas as pd
 import warnings
-
+import unifloc.common.trajectory as tr
 
 warnings.filterwarnings("ignore", category=RuntimeWarning) 
 
@@ -94,8 +94,9 @@ class HasanKabirAnn():
         self.vs_gas_bubble2slug_msec = ((1.2 * self.vs_liq_msec + v_d_msec) / (4 
                                     - 1.2)) * np.sin(self.theta * np.pi/180)
         #to annular transirion [17]
-        self.vs_gas_2annular_msec = (3.1 * (self.fluid.stlg * CONST.g * (self.fluid.rl- 
+        self.vs_gas_2annular_msec = ((3.1 * (self.fluid.stlg * CONST.g * (self.fluid.rl- 
                                     self.fluid.rg) / (self.fluid.rg) ** 2) ** 0.25 + 1)
+                                    * np.sin(self.theta * np.pi/180))
         #bubble/slug to dispersed transition [6]
         self.v_m_krit2disp_msec = sp.fsolve(self._mixture_velocity_Caetano, 6, maxfev=5)
         self._set_flow_pattrn()
@@ -317,7 +318,7 @@ class HasanKabirAnn():
 
 if __name__ == '__main__':
 
-    def grad_func(h, pt, d_i, d_o, rp, qu_liq, wct):
+    def grad_func(h, pt, d_i, d_o, rp, qu_liq, wct, MD, TVD, absep):
         """
         Функция для интегрирования трубы
 
@@ -334,6 +335,15 @@ if __name__ == '__main__':
         :return: градиент температуры в заданной точке трубы
         при заданных термобарических условиях, К/м
         """
+        trajectory = tr.Trajectory(pd.DataFrame(columns=["MD", "TVD"],
+                                        data=[[0, 0], [1400, 1400],
+                                        [1800, 1800], [MD, TVD]]))
+        h_steps = [0]
+        h_steps.append(h)
+        h_prev = h_steps[-2]
+        h_next = h_steps[-1]
+        theta = trajectory.calc_angle(h_prev,h_next)
+        print(theta)
         pvt_model =  {"black_oil": {"gamma_gas": 0.7, "gamma_wat": 1, "gamma_oil": 0.8,
                                         "rp": rp,
                                         "oil_correlations":
@@ -346,12 +356,12 @@ if __name__ == '__main__':
                                                     "rho": "Standing", "mu": "McCain"}}}
         PVT = FluidFlow(qu_liq/86400, wct, pvt_model)
         PVT.calc_flow(pt[0],pt[1])
-        test3 = HasanKabirAnn(d_i_m = d_i, d_o_m = d_o, fluid = PVT)
+        test3 = HasanKabirAnn(d_i_m = d_i, d_o_m = d_o, fluid = PVT, theta=theta, abseps= absep)
         dp_dl = test3.calc_pressure_gradient() 
         dt_dl = 0.03
         return dp_dl, dt_dl
 
-    def func_p_list(p_head, t_head, h, d_i, d_o, rp, qu_liq, wct):
+    def func_p_list(p_head, t_head, h, d_i, d_o, rp, qu_liq, wct, md, absep):
         """
         Функция для интегрирования давления, температуры в трубе
 
@@ -379,12 +389,14 @@ if __name__ == '__main__':
             d_o,
             rp,
             qu_liq, 
-            wct,)
+            wct,
+            md, h,
+            absep,)
         ) 
         return sol.y, 
     
-    for i in range(0, 400,10):
-        tt = func_p_list(p_head = 15, t_head=293, h=2400, d_i = 73, d_o=142, rp=i, qu_liq=600, wct=0.4)
+    for i in range(0, 10,10):
+        tt = func_p_list(p_head = 15, t_head=293, h=2400, d_i = 73, d_o=142, rp=i, qu_liq=600, wct=0.4, md =2400,  absep= 2.54)
         vr1 = tt[0]
         vr2 = vr1[0]
         vr3= vr2[-1]
