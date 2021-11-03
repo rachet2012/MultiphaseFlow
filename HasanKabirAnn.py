@@ -28,8 +28,7 @@ class HasanKabirAnn():
         :param d_o_m: внутренний диаметр ЭК, мм
         :param theta: угол наклона скважины, градусы
         :param abseps: абсолютная шероховатость стенок трубы, м^10-5
-        :param d_equ_m: эквивалентный диаметр затрубного пространства, м2
-        :param k_ratio_d: отношение внешнего диаметра НКТ к внутреннему диаметру ЭК, дол.ед
+
         """
         self.fluid = fluid
 
@@ -38,8 +37,7 @@ class HasanKabirAnn():
         self.theta = theta
         self.abseps =abseps / 100000
 
-        self.d_equ_m = self.d_o_m - self.d_i_m
-        self.k_ratio_d = self.d_i_m / self.d_o_m
+
         
     def _calc_par(self):
         """
@@ -50,11 +48,15 @@ class HasanKabirAnn():
         :param vs_gas_msec: приведенная скорость газа, м/с
         :param vs_liq_msec: приведенная скорость жидкости, м/с
         :param v_mix_msec: приведенная скорость смеси, м/с
+        :param d_equ_m: эквивалентный диаметр затрубного пространства, м2
+        :param k_ratio_d: отношение внешнего диаметра НКТ к внутреннему диаметру ЭК, дол.ед
         """
         f_m2 =  CONST.pi * ((self.d_o_m/2)**2 - (self.d_i_m/2)**2)
         self.vs_gas_msec = self.fluid.qg / f_m2
         self.vs_liq_msec = self.fluid.ql / f_m2
         self.v_mix_msec = (self.fluid.qg + self.fluid.ql) / f_m2
+        self.d_equ_m = self.d_o_m - self.d_i_m
+        self.k_ratio_d = self.d_i_m / self.d_o_m
         
     def _mixture_velocity_Caetano(self, initial_f):
         """
@@ -339,7 +341,7 @@ if __name__ == '__main__':
         h_steps.append(h)
         h_prev = h_steps[-1]
         theta = traj.calc_angle(h_prev,h)
-        print(theta)
+        # print(theta)
         PVT.calc_flow(pt[0],pt[1])
         test3 = HasanKabirAnn(d_i_m = d_i, d_o_m = d_o, fluid = PVT, theta=theta, abseps= absep)
         dp_dl = test3.calc_pressure_gradient() 
@@ -378,23 +380,7 @@ if __name__ == '__main__':
         ) 
         return sol.y, 
     
-
-#TECT
-    for i in range(0, 10,10):
-        rp=i
-        qu_liq_r=600 
-        wct_r=0.4 
-
-        p_head_r = 15 
-        t_head_r=293 
-    
-        d_i_r = 73
-        d_o_r=142 
-        
-        h_r=2400
-        md_r =2400 
-        absep_r = 2.54
-
+    def schet(rp,qu_liq_r,wct_r,p_head_r,t_head_r ,d_i_r, d_o_r, h_r, md_r, absep_r):
         pvt_model =  {"black_oil": {"gamma_gas": 0.7, "gamma_wat": 1, "gamma_oil": 0.8,
                                         "rp": rp,
                                         "oil_correlations":
@@ -406,17 +392,20 @@ if __name__ == '__main__':
                             "water_correlations": {"b": "McCain", "compr": "Kriel",
                                                     "rho": "Standing", "mu": "McCain"}}}
         pvt = FluidFlow(qu_liq_r/86400, wct_r, pvt_model)
-        
         trajectory = tr.Trajectory(pd.DataFrame(columns=["MD", "TVD"],
                                         data=[[0, 0], [1400, 1400],
                                         [1800, 1800], [md_r, h_r]]))
 
-        tt = func_p_list(p_head = p_head_r, t_head=t_head_r, h=h_r, d_i = d_i_r, d_o=142,
+        tt = func_p_list(p_head = p_head_r, t_head=t_head_r, h=h_r, d_i = d_i_r, d_o=d_o_r,
                          PVT=pvt, traj=trajectory,  absep= absep_r)
         vr1 = tt[0]
         vr2 = vr1[0]
         vr3= vr2[-1]
-        print(vr3/101325)
+        return vr3/101325
+#TECT
+    for i in range(0, 40,10):
+        ttt = schet(i,qu_liq_r=600, wct_r=0.4, p_head_r = 15, t_head_r=293, d_i_r = 73, d_o_r=142, h_r=2400, md_r =2400,absep_r = 2.54)
+        print(ttt)
 
  
       
