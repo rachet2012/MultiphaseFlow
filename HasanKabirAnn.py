@@ -12,7 +12,7 @@ import unifloc.common.trajectory as tr
 warnings.filterwarnings("ignore", category=RuntimeWarning) 
 
 
-#TODO fsolve(экспоненты и логарифм, пока подходит только fsolve), по идее траекторию привязывать как и PVT
+#TODO fsolve(экспоненты и логарифм, пока подходит только fsolve)
 class HasanKabirAnn():
     """
     Класс для расчета градиента давления в затрубном пространстве по корреляции HasanKabir/CaetanoBrill
@@ -403,8 +403,9 @@ if __name__ == '__main__':
         vr3= vr2[-1]
         return vr3/101325
 #TECT
-    for i in range(0, 40,10):
-        ttt = schet(i,qu_liq_r=600, wct_r=0.4, p_head_r = (15*101325), t_head_r=293, d_i_r = 73, d_o_r=142, h_r=2400, md_r =2400,absep_r = 2.54)
+    for i in range(0, 10,10):
+        ttt = schet(i,qu_liq_r=600, wct_r=0.4, p_head_r = (15*101325), t_head_r=293, d_i_r = 73, d_o_r=142,
+             h_r=2400, md_r =2400,absep_r = 2.54)
         print(ttt)
 
  
