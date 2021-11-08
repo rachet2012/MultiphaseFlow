@@ -36,7 +36,17 @@ class HasanKabirAnn():
         self.d_i_m = d_i_m / 1000
         self.d_o_m = d_o_m / 1000
         self.theta = theta
-        self.abseps =abseps / 100000
+        self.abseps = abseps / 100000
+
+        self.flow_pattern = None
+        self.flow_pattern_name = None
+
+        self.epsi = None
+        self.rho_mix = None
+        self.result_grad_pam = None
+        self.acceleration_grad_pam = None
+        self.density_grad_pam = None
+        self.friction_grad_pam = None
 
     def _calc_par(self):
         """
@@ -322,7 +332,7 @@ if __name__ == '__main__':
 
     def grad_func(h, pt, d_i, d_o, PVT, traj, abseps):
         """
-        Функция для интегрирования трубы
+        Интегрируемае функция
 
         :param h: текущая глубина, м
         :param pt: текущее давление, Па и текущая температура, К
@@ -383,7 +393,18 @@ if __name__ == '__main__':
 
     def schet(rp,qu_liq,wct,p_head,t_head ,d_i, d_o, tvd3, md3, abseps):
         """
-        Пайлинт не ругайся это функция для расчета
+        Функция для инициилизации расчета
+
+        :param p_head: давление на устье, Па
+        :param t_head: температура на устье, К
+        :param h: граничная глубина, м
+        :param d_i: внешний диаметр НКТ, мм
+        :param d_o: внутренний диаметр ЭК, мм
+        :param PVT: объект с PVT моделью
+        :param traj: объект с инклинометрией
+        :param abseps: абсолютная шероховатость стенок трубы, м*10^-5
+
+        :return: забойное давление, атм
         """
         pvt_model =  {"black_oil": {"gamma_gas": 0.7, "gamma_wat": 1, "gamma_oil": 0.8,
                                         "rp": rp,
