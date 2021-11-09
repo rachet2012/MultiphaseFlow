@@ -425,6 +425,6 @@ if __name__ == '__main__':
         return vr3/101325
 #TECT
     for i in range(0, 100,10):
-        zab = schet(i,qu_liq=600, wct=0.4, p_head = (15*101325), t_head=293, d_i = 73, d_o=142,
+        zab = schet(i,qu_liq=300, wct=0.6, p_head = (15*101325), t_head=293, d_i = 73, d_o=142,
              tvd3=2400, md3 =2400,abseps = 2.54)
         print('Забойное давлении:',zab, 'атм. при ГФ =',i, 'м3/м3')
