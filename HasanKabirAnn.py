@@ -57,15 +57,14 @@ class HasanKabirAnn():
         :param vs_gas_msec: приведенная скорость газа, м/с
         :param vs_liq_msec: приведенная скорость жидкости, м/с
         :param v_mix_msec: приведенная скорость смеси, м/с
-        :param d_equ_m: эквивалентный диаметр затрубного пространства, м2
-        :param k_ratio_d: отношение внешнего диаметра НКТ к внутреннему диаметру ЭК, дол.ед
+        :param _d_equ_m: эквивалентный диаметр затрубного пространства, м2
         """
         f_m2 =  CONST.pi * ((self.d_o_m/2)**2 - (self.d_i_m/2)**2)
         self.vs_gas_msec = self.fluid.qg / f_m2
         self.vs_liq_msec = self.fluid.ql / f_m2
         self.v_mix_msec = (self.fluid.qg + self.fluid.ql) / f_m2
-        self.d_equ_m = self.d_o_m - self.d_i_m
-        self.k_ratio_d = self.d_i_m / self.d_o_m
+        self._d_equ_m = self.d_o_m - self.d_i_m
+
 
     def _mixture_velocity_Caetano(self, initial_f):
         """
@@ -76,7 +75,7 @@ class HasanKabirAnn():
                                 * self.fluid.rg + (1 - self.fluid.qg / (self.fluid.qg +
                                 self.fluid.ql)) * self.fluid.rl)
         friction_coeff = self._actual_friction_coef(rho_m_rash_kgm3)
-        right_part = 2 * (initial_f ** 1.2) * (friction_coeff** 0.4) * ((2 / self.d_equ_m) **
+        right_part = 2 * (initial_f ** 1.2) * (friction_coeff** 0.4) * ((2 / self._d_equ_m) **
                      0.4) * ((self.fluid.rl/ self.fluid.stlg) ** 0.6 ) *(0.4 * self.fluid.stlg / (
                          (self.fluid.rl- self.fluid.rg) * CONST.g) ** 0.5)
         left_part = 0.725 + 4.15 * (self.vs_gas_msec / initial_f) ** 0.5
@@ -119,13 +118,14 @@ class HasanKabirAnn():
 
         :return: коэффициент трения, безразмерн.
         """
-        frict = fr.Friction(self.d_equ_m)
+        k_ratio_d = self.d_i_m / self.d_o_m
+        frict = fr.Friction(self._d_equ_m)
         mu_mix_pasec = (self.vs_liq_msec / self.v_mix_msec * self.fluid.mul
                             + self.vs_gas_msec / self.v_mix_msec * self.fluid.mug)
         self.num_Re = frict.calc_n_re(rho, self.v_mix_msec, mu_mix_pasec)
-        self.fca = (16 * (1 - self.k_ratio_d) ** 2 /
-                    ((1 - self.k_ratio_d ** 4) / (1 - self.k_ratio_d ** 2) -
-                     (1 - self.k_ratio_d ** 2) / m.log(1 / self.k_ratio_d)))
+        self.fca = (16 * (1 - k_ratio_d) ** 2 /
+                    ((1 - k_ratio_d ** 4) / (1 - k_ratio_d ** 2) -
+                     (1 - k_ratio_d ** 2) / m.log(1 / k_ratio_d)))
         if self.num_Re < 3000:  # laminar flow
             fric = self.fca / self.num_Re
         else:  # turbulent flow
@@ -221,7 +221,7 @@ class HasanKabirAnn():
         """
         self.h_ls = 1 - self.epsi_s
         h_lf = 1 - self.epsi_t
-        self.len_ls = 16 * self.d_equ_m #38
+        self.len_ls = 16 * self._d_equ_m #38
         len_su = self.len_ls / self.len_s_m
         self.v_lls = ((self.vs_liq_msec + self.vs_gas_msec) - 1.53 * ((self.fluid.rl- self.fluid.rg) #23
                     * CONST.g * self.fluid.stlg / (self.fluid.rl**2)) ** 0.25 * self.h_ls ** 0.5 * (1 - self.h_ls))
@@ -258,19 +258,20 @@ class HasanKabirAnn():
         Допустил, что толщина пленки жидкости на внешней(или внутренней) трубе известна
         """
         delta_o = 0.005
-        angle_wt_average = (1 / (1 - self.k_ratio_d ** 2) * (2 * m.asin(self.k_ratio_d) + 2 * #[88]
-                             self.k_ratio_d  * (1 - self.k_ratio_d ** 2) ** 0.5 - CONST.pi *
-                            self.k_ratio_d ** 2))
-        t_ratio = angle_wt_average / ((2 * CONST.pi - angle_wt_average) * self.k_ratio_d)
+        k_ratio_d = self.d_i_m / self.d_o_m
+        angle_wt_average = (1 / (1 - k_ratio_d ** 2) * (2 * m.asin(k_ratio_d) + 2 * #[88]
+                             k_ratio_d  * (1 - k_ratio_d ** 2) ** 0.5 - CONST.pi *
+                             k_ratio_d ** 2))
+        t_ratio = angle_wt_average / ((2 * CONST.pi - angle_wt_average) * k_ratio_d)
         delta_i = delta_o * t_ratio
         phi = (10 ** 4 * self.vs_gas_msec * self.fluid.mug / self.fluid.stlg * (self.fluid.rg#[79]
                     / self.fluid.rl) ** 0.5)
         fe = 1 - m.exp((phi - 1.5) * (-0.125))
-        self.hl_total = (4 / ((self.d_o_m) * (1 - self.k_ratio_d ** 2)) * (delta_o * (1 - delta_o / self.d_o_m)#[77]
-                        + delta_i * self.k_ratio_d * (1 + delta_i / self.d_i_m) + self.vs_liq_msec * fe
-                        / ((self.vs_liq_msec * fe + self.vs_gas_msec) * (1 - self.k_ratio_d ** 2)) *
-                        (1 - self.k_ratio_d ** 2 - 4 * delta_o / self.d_o_m * (1 - delta_o / self.d_o_m)
-                        - 4 * delta_i *self.k_ratio_d / self.d_o_m * (1 + delta_i / self.d_i_m))))
+        self.hl_total = (4 / ((self.d_o_m) * (1 - k_ratio_d ** 2)) * (delta_o * (1 - delta_o / self.d_o_m)#[77]
+                        + delta_i * k_ratio_d * (1 + delta_i / self.d_i_m) + self.vs_liq_msec * fe
+                        / ((self.vs_liq_msec * fe + self.vs_gas_msec) * (1 - k_ratio_d ** 2)) *
+                        (1 - k_ratio_d ** 2 - 4 * delta_o / self.d_o_m * (1 - delta_o / self.d_o_m)
+                        - 4 * delta_i * k_ratio_d / self.d_o_m * (1 + delta_i / self.d_i_m))))
         self.epsi = 1 - self.hl_total
 
     def calc_rho_mix(self):
@@ -301,7 +302,7 @@ class HasanKabirAnn():
             self.density_grad_pam = self.rho_mix_kgm3 * CONST.g * np.sin(self.theta * np.pi/180)
 
             friction_coeff_s = self._actual_friction_coef(self.rho_mix_kgm3)
-            self.friction_grad_pam = ((4 * friction_coeff_s / (self.d_equ_m )
+            self.friction_grad_pam = ((4 * friction_coeff_s / (self._d_equ_m )
                                      * self.v_mix_msec ** 2 / 2) * self.rho_mix_kgm3)
 
             self.acceleration_grad_pam = 0
@@ -311,7 +312,7 @@ class HasanKabirAnn():
             self.density_grad_pam = self.rho_slug_kgm3 * CONST.g  * self.len_s_m *  np.sin(self.theta * np.pi/180) #[50]
 
             friction_coeff_s = self._actual_friction_coef(self.rho_slug_kgm3)
-            self.friction_grad_pam = ((2 * friction_coeff_s / self.d_equ_m * self.rho_slug_kgm3)#[53]
+            self.friction_grad_pam = ((2 * friction_coeff_s / self._d_equ_m * self.rho_slug_kgm3)#[53]
                                      * (self.vs_gas_msec + self.vs_liq_msec) **2 * self.len_s_m)
 
             self.acceleration_grad_pam = self._acceler_grad_p()
@@ -330,17 +331,15 @@ class HasanKabirAnn():
 
 if __name__ == '__main__':
 
-    def grad_func(h, pt, d_i, d_o, PVT, traj, abseps):
+    def grad_func(h, pt, PVT, traj, corr):
         """
         Интегрируемае функция
 
         :param h: текущая глубина, м
         :param pt: текущее давление, Па и текущая температура, К
-        :param d_i: внешний диаметр НКТ, мм
-        :param d_o: внутренний диаметр ЭК, мм
         :param PVT: объект с PVT моделью
         :param traj: объект с инклинометрией
-        :param wct: абсолютная шероховатость стенок трубы, м*10^-5
+        :param corr: объект с корреляцией
 
         :return: градиент давления в заданной точке трубы
         при заданных термобарических условиях, Па/м
@@ -353,23 +352,22 @@ if __name__ == '__main__':
         theta = traj.calc_angle(h_prev,h)
         # print(theta)
         PVT.calc_flow(pt[0],pt[1])
-        test3 = HasanKabirAnn(d_i_m = d_i, d_o_m = d_o, fluid = PVT, theta=theta, abseps= abseps)
-        dp_dl = test3.calc_pressure_gradient()
+        corr.theta = theta
+        corr.fluid = PVT
+        dp_dl = corr.calc_pressure_gradient()
         dt_dl = 0.03
         return dp_dl, dt_dl
 
-    def func_p_list(p_head, t_head, h, d_i, d_o, PVT, traj, abseps):
+    def func_p_list(p_head, t_head, h, PVT, traj, corr):
         """
         Функция для интегрирования давления, температуры в трубе
 
         :param p_head: давление на устье, Па
         :param t_head: температура на устье, К
         :param h: граничная глубина, м
-        :param d_i: внешний диаметр НКТ, мм
-        :param d_o: внутренний диаметр ЭК, мм
         :param PVT: объект с PVT моделью
         :param traj: объект с инклинометрией
-        :param abseps: абсолютная шероховатость стенок трубы, м*10^-5
+        :param corr: объект с корреляцией
 
         :return: массив температур, К, массив давлений, Па
         """
@@ -383,11 +381,9 @@ if __name__ == '__main__':
             t_eval=steps,
             max_step = 55,
             args=(
-            d_i,
-            d_o,
             PVT,
             traj,
-            abseps,)
+            corr,)
         )
         return sol.y,
 
@@ -420,15 +416,15 @@ if __name__ == '__main__':
         trajectory = tr.Trajectory(pd.DataFrame(columns=["MD", "TVD"],
                                         data=[[0, 0], [1400, 1400],
                                         [1800, 1800], [md3, tvd3]]))
-
-        vr = func_p_list(p_head = p_head, t_head=t_head, h=tvd3, d_i = d_i, d_o=d_o,
-                         PVT=pvt, traj=trajectory,  abseps= abseps)
+        test3 = HasanKabirAnn(d_i_m = d_i, d_o_m = d_o, fluid = pvt, abseps= abseps)
+        vr = func_p_list(p_head = p_head, t_head=t_head, h=tvd3,
+                         PVT=pvt, traj=trajectory, corr = test3)
         vr1 = vr[0]
         vr2 = vr1[0]
         vr3= vr2[-1]
         return vr3/101325
 #TECT
-    for i in range(0, 10,10):
+    for i in range(0, 100,10):
         zab = schet(i,qu_liq=600, wct=0.4, p_head = (15*101325), t_head=293, d_i = 73, d_o=142,
              tvd3=2400, md3 =2400,abseps = 2.54)
         print('Забойное давлении:',zab, 'атм. при ГФ =',i, 'м3/м3')
