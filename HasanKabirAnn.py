@@ -323,23 +323,7 @@ class HasanKabirAnn():
             self.dp_dl_acc = self._acceler_grad_p_annular()
         return self.dp_dl_acc
 
-    def calc_grad(self,  theta_deg,
-            eps_m,
-            ql_rc_m3day,
-            qg_rc_m3day,
-            mul_rc_cp,
-            mug_rc_cp,
-            sigma_l_nm,
-            rho_lrc_kgm3,
-            rho_grc_kgm3,
-            c_calibr_grav,
-            c_calibr_fric,
-            h_mes,flow_direction,
-            vgas_prev,
-            rho_gas_prev,
-            h_mes_prev,
-            calc_acc,
-            rho_mix_rc_kgm3):
+    def calc_grad(self):
         """
         Метод для расчета градиента давления
         Upward Vertical Two-Phase Flow Through an Annulus—Part II
@@ -540,14 +524,16 @@ if __name__ == '__main__':
 
 #TECT
     for i in range(0, 10,10):
-        # zab = schet(i,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325), t_head_r=293, absep_r = 2.54, md1 = 1400, md2 = 1800, md3 = 3600, tvd1 = 1400,
-        #           tvd2 = 1800, tvd3=2400, gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8, pb = (50 * 101325), t_res = 303.15,
-        #           rsb = 50, muob = 0.5, bob = 1.5, d_o_1 = 142, d_o_2 =142 , d_o_3 = 142, d_i_1 = 73, d_i_2 = 73,
-        #           d_i_3 = 73,)
-        # print('Забойное давлении:',zab, 'атм. при ГФ =',i, 'м3/м3')
-        print(schet_pipe(i,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325), t_head_r=293, absep_r = 2.54,
-                 md1 = 1400, md2 = 1800, md3 = 2400,
-                  tvd1 = 1400,tvd2 = 1800, tvd3=2400,
-                   gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8, pb = (50 * 101325), t_res = 303.15,
+        zab = schet(i,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325), t_head_r=293, absep_r = 2.54,
+                    md1 = 1400, md2 = 1800, md3 = 3000,
+                    tvd1 = 1400, tvd2 = 1800, tvd3=2400,
+                     gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8, pb = (50 * 101325), t_res = 303.15,
                   rsb = 50, muob = 0.5, bob = 1.5, d_o_1 = 142, d_o_2 =142 , d_o_3 = 142, d_i_1 = 73, d_i_2 = 73,
-                  d_i_3 = 73,))
+                  d_i_3 = 73,)
+        print('Забойное давлении:',zab, 'атм. при ГФ =',i, 'м3/м3')
+        # print(schet_pipe(i,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325), t_head_r=293, absep_r = 2.54,
+        #          md1 = 1400, md2 = 1800, md3 = 2400,
+        #           tvd1 = 1400,tvd2 = 1800, tvd3=2400,
+        #            gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8, pb = (50 * 101325), t_res = 303.15,
+        #           rsb = 50, muob = 0.5, bob = 1.5, d_o_1 = 142, d_o_2 =142 , d_o_3 = 142, d_i_1 = 73, d_i_2 = 73,
+        #           d_i_3 = 73,))
