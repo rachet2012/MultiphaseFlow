@@ -11,12 +11,13 @@ import unifloc.common.trajectory as tr
 import unifloc.pipe._pipe as pipe
 import scipy.interpolate as interp
 import unifloc.common.ambient_temperature_distribution as amb
+import unifloc.pipe._hydrcorr as hr
 
 warnings.filterwarnings("ignore",category=RuntimeWarning)
 
 
 #TODO fsolve(экспоненты и логарифм, пока подходит только fsolve)
-class HasanKabirAnn():
+class HasanKabirAnn(hr.HydrCorr):
     """
     Класс для расчета градиента давления в затрубном пространстве по корреляции HasanKabir/CaetanoBrill
     Определяются структура потока, истинная концентрация газа, плотность смеси,
@@ -41,18 +42,7 @@ class HasanKabirAnn():
         self.angle = theta_deg
         self.abseps = abseps / 100000
 
-        self.flow_pattern = None
-        self.flow_pattern_name = None
-
-        self.hl = None
-        self.epsi = None
-        self.rho_mix = None
-        self.dp_dl = None
-        self.dp_dl_acc = None
-        self.dp_dl_gr = None
-        self.dp_dl_fr = None
-
-    def _calc_par(self):
+    def calc_params(self):
         """
         Метод расчета дополнительных параметров, необходимых для расчета градиента давления в трубе
         по методике Hasan Kabir
@@ -96,7 +86,7 @@ class HasanKabirAnn():
                     3000) / 10 ** 6))) ** 0.5
         return right_part - left_part
 
-    def _calc_pattern(self):
+    def _calc_fp(self):
         """
         Метод для расчета критических значений скоростей
         TWO-PHASE FLOW IN VERTICAL AND INCLINED ANNULI
@@ -105,6 +95,7 @@ class HasanKabirAnn():
         #bubble to slug transition [4]
         v_d_msec = 1.53 * (CONST.g * self.fluid.stlg * (self.fluid.rl
                         - self.fluid.rg) / (self.fluid.rl)**2 ) ** 0.25
+
         self.vs_gas_bubble2slug_msec = ((1.2 * self.vsl + v_d_msec) / (4
                                     - 1.2)) * np.sin(self.angle * np.pi/180)
         #to annular transirion [17]
@@ -140,6 +131,8 @@ class HasanKabirAnn():
         """
         Метод для определения структуры потока
         """
+
+
         if self.vsg <= self.vs_gas_bubble2slug_msec:
             self.flow_pattern = 0
             self.flow_pattern_name = 'Bubble flow pattern - пузырьковый режим'
@@ -258,7 +251,7 @@ class HasanKabirAnn():
                     * v_llf)
         return grad_p_acc_an
 
-    def _calc_hl_annular(self):
+    def _calc_hl(self):
         """
         Метод для вычисления концентрации газа в потоке кольцевой структуры[77]
         Допустил, что толщина пленки жидкости на внешней(или внутренней) трубе известна
@@ -284,13 +277,13 @@ class HasanKabirAnn():
         """
         Метод для расчета плотности смеси
         """
-        self._calc_pattern()
+        self._calc_fp()
         if self.flow_pattern == 0 or self.flow_pattern == 1:
             self._calc_bubbly()
         elif self.flow_pattern == 2 or self.flow_pattern == 3:
             self._calc_slug_churn()
         elif self.flow_pattern == 4:
-            self._calc_hl_annular()
+            self._calc_hl()
         self.rho_mix_kgm3 = self.fluid.rl * (1 - self.epsi) + self.fluid.rg * self.epsi
 
     def calc_grav(self):
@@ -323,7 +316,23 @@ class HasanKabirAnn():
             self.dp_dl_acc = self._acceler_grad_p_annular()
         return self.dp_dl_acc
 
-    def calc_grad(self):
+    def calc_grad(self,  theta_deg,
+            eps_m,
+            ql_rc_m3day,
+            qg_rc_m3day,
+            mul_rc_cp,
+            mug_rc_cp,
+            sigma_l_nm,
+            rho_lrc_kgm3,
+            rho_grc_kgm3,
+            c_calibr_grav,
+            c_calibr_fric,
+            h_mes,flow_direction,
+            vgas_prev,
+            rho_gas_prev,
+            h_mes_prev,
+            calc_acc,
+            rho_mix_rc_kgm3):
         """
         Метод для расчета градиента давления
         Upward Vertical Two-Phase Flow Through an Annulus—Part II
@@ -331,7 +340,7 @@ class HasanKabirAnn():
         :return: суммарный градиент давления, Па/м
 
         """
-        self._calc_par()
+        self.calc_params()
         self.calc_rho_mix()
 
         self.dp_dl_gr = self.calc_grav()
@@ -384,7 +393,7 @@ if __name__ == '__main__':
                 d_i["MD"], d_i["d_i"], fill_value="extrapolate", kind="previous"
                 )(md)
         # print(corr.d_o_m)
-        dp_dl = corr.calc_grad()
+        dp_dl = corr.calc_grad(1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,)
         dt_dl = 0.03
         return dp_dl, dt_dl
 
@@ -511,30 +520,34 @@ if __name__ == '__main__':
         d_i = pd.DataFrame(columns=["MD", "d_i"],
                                     data=[[0, d_i_1], [md1, d_i_1],
                                     [md2, d_i_2], [md3, d_i_3]])
-        ambient_temperature_data = {"MD": [0, md3], "T": [303.15, 363.15]}
+        d_i = 73
+        ambient_temperature_data = {"MD": [0, md3], "T": [t_head_r, t_res]}
         amb_temp = amb.AmbientTemperatureDistribution(ambient_temperature_data)
         step = [i for i in range(0, tvd3+50, 50)]
-        pip = pipe.Pipe(fluid=pvt, d = d_i, roughness=2.54,hydr_corr_type='HasanKabir')
+        d_oo=146
+        pip = pipe.Pipe(fluid=pvt,d_o =d_oo,  d = d_i, roughness=absep_r,hydr_corr_type='HasanKabir')
         return pip.integrate_pipe(p0 = p_head_r,t0= t_head_r,h0=0,h1=tvd3,trajectory= trajector,
-                 amb_temp_dist=amb_temp,int_method='RK45', d_func = interp.interp1d(
-                d_i["MD"], d_i["d_i"], fill_value="extrapolate", kind="previous"
-                ),
-                 directions=(0,0), friction_factor=1,holdup_factor=1,heat_balance=1,steps=step)
+                 amb_temp_dist=amb_temp,int_method='RK45', d_func = None,
+                 directions=(1,0), friction_factor=1,holdup_factor=1,heat_balance=1,steps=step)
 
-
+#d_func = interp.interp1d(
+                #d_i["MD"], d_i["d_i"], fill_value="extrapolate", kind="previous"
+               # ),
 #TECT
     for i in range(0, 10,10):
         zab = schet(i,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325), t_head_r=293, absep_r = 2.54,
-                    md1 = 1400, md2 = 1800, md3 = 3000,
-                    tvd1 = 1400, tvd2 = 1800, tvd3=2400,
-                    gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8, pb = (50 * 101325), t_res = 303.15,
-                    rsb = 50, muob = 0.5, bob = 1.5,
-                    d_o_1 = 142, d_o_2 =142 , d_o_3 = 142,
-                    d_i_1 = 73, d_i_2 = 73, d_i_3 = 73,)
+             md1 = 1400, md2 = 1800, md3 = 3000,
+                 tvd1 = 1400, tvd2 = 1800, tvd3=3000,
+                  gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8, pb = (50 * 101325), t_res = 363.15,
+                  rsb = 50, muob = 0.5, bob = 1.5, d_o_1 = 142, d_o_2 =142 , d_o_3 = 142, d_i_1 = 73, d_i_2 = 73,
+                  d_i_3 = 73,)
         print('Забойное давлении:',zab, 'атм. при ГФ =',i, 'м3/м3')
-        # print(schet_pipe(i,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325), t_head_r=293, absep_r = 2.54,
-        #          md1 = 1400, md2 = 1800, md3 = 2400,
-        #           tvd1 = 1400,tvd2 = 1800, tvd3=2400,
-        #            gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8, pb = (50 * 101325), t_res = 303.15,
-        #           rsb = 50, muob = 0.5, bob = 1.5, d_o_1 = 142, d_o_2 =142 , d_o_3 = 142, d_i_1 = 73, d_i_2 = 73,
-        #           d_i_3 = 73,))
+        print(schet_pipe(i,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325),
+                 t_head_r=293, absep_r = 2.54,
+                 md1 = 1400, md2 = 1800, md3 = 3000,
+                  tvd1 = 1400,tvd2 = 1800, tvd3=3000,
+                   gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8,
+                   pb = (50 * 101325), t_res = 363.15,
+                  rsb = 50, muob = 0.5, bob = 1.5,
+                  d_o_1 = 142, d_o_2 =142 , d_o_3 = 142,
+                  d_i_1 = 73, d_i_2 = 73, d_i_3 = 73,))
