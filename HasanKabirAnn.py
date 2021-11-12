@@ -15,7 +15,6 @@ import unifloc.common.ambient_temperature_distribution as amb
 warnings.filterwarnings("ignore",category=RuntimeWarning)
 
 
-#TODO fsolve(экспоненты и логарифм, пока подходит только fsolve)
 class HasanKabirAnn():
     """
     Класс для расчета градиента давления в затрубном пространстве по корреляции HasanKabir/CaetanoBrill

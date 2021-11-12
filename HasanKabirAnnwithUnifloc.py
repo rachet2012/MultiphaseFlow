@@ -340,6 +340,7 @@ class HasanKabirAnn(hr.HydrCorr):
         :return: суммарный градиент давления, Па/м
 
         """
+        self.angle = theta_deg
         self.calc_params()
         self.calc_rho_mix()
 
@@ -514,20 +515,28 @@ if __name__ == '__main__':
                                         data=[[0, 0], [md1, tvd1],
                                         [md2, tvd2], [md3, tvd3]])
         trajector = tr.Trajectory(md_tvd)
-        d_o = pd.DataFrame(columns=["MD", "d_o"],
+        d_oo = pd.DataFrame(columns=["MD", "d_o"],
                                     data=[[0, d_o_1], [md1, d_o_1],
                                     [md2, d_o_2], [md3, d_o_3]])
         d_i = pd.DataFrame(columns=["MD", "d_i"],
                                     data=[[0, d_i_1], [md1, d_i_1],
                                     [md2, d_i_2], [md3, d_i_3]])
-        d_i = 73
+
+        d_i_func = interp.interp1d(
+                d_i["MD"], d_i["d_i"], fill_value="extrapolate", kind="previous"
+               )
+        d_oo_func = interp.interp1d(
+                d_oo["MD"], d_oo["d_o"], fill_value="extrapolate", kind="previous"
+               )
+        # d_i = 73
         ambient_temperature_data = {"MD": [0, md3], "T": [t_head_r, t_res]}
         amb_temp = amb.AmbientTemperatureDistribution(ambient_temperature_data)
         step = [i for i in range(0, tvd3+50, 50)]
-        d_oo=146
-        pip = pipe.Pipe(fluid=pvt,d_o =d_oo,  d = d_i, roughness=absep_r,hydr_corr_type='HasanKabir')
+        # d_oo=146
+
+        pip = pipe.Pipe(fluid=pvt, d_o =142,  d = 73, roughness=absep_r,hydr_corr_type='HasanKabir')
         return pip.integrate_pipe(p0 = p_head_r,t0= t_head_r,h0=0,h1=tvd3,trajectory= trajector,
-                 amb_temp_dist=amb_temp,int_method='RK45', d_func = None,
+                 amb_temp_dist=amb_temp,int_method='RK45', d_func = d_i_func,d_o_func = d_oo_func,
                  directions=(1,0), friction_factor=1,holdup_factor=1,heat_balance=1,steps=step)
 
 #d_func = interp.interp1d(
@@ -536,10 +545,10 @@ if __name__ == '__main__':
 #TECT
     for i in range(0, 10,10):
         zab = schet(i,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325), t_head_r=293, absep_r = 2.54,
-             md1 = 1400, md2 = 1800, md3 = 3000,
-                 tvd1 = 1400, tvd2 = 1800, tvd3=3000,
+             md1 = 1400, md2 = 1800, md3 = 2400,
+                 tvd1 = 1400, tvd2 = 1800, tvd3=2400,
                   gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8, pb = (50 * 101325), t_res = 363.15,
-                  rsb = 50, muob = 0.5, bob = 1.5, d_o_1 = 142, d_o_2 =142 , d_o_3 = 142, d_i_1 = 73, d_i_2 = 73,
+                  rsb = 50, muob = 0.5, bob = 1.5, d_o_1 = 142, d_o_2 =142 , d_o_3 = 142, d_i_1 = 73 , d_i_2 = 73,
                   d_i_3 = 73,)
         print('Забойное давлении:',zab, 'атм. при ГФ =',i, 'м3/м3')
         print(schet_pipe(i,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325),
@@ -549,5 +558,5 @@ if __name__ == '__main__':
                    gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8,
                    pb = (50 * 101325), t_res = 363.15,
                   rsb = 50, muob = 0.5, bob = 1.5,
-                  d_o_1 = 142, d_o_2 =142 , d_o_3 = 142,
-                  d_i_1 = 73, d_i_2 = 73, d_i_3 = 73,))
+                  d_o_1 = 130, d_o_2 =130 , d_o_3 = 130,
+                  d_i_1 = 56, d_i_2 = 56, d_i_3 = 56,))
