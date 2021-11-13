@@ -12,6 +12,7 @@ import unifloc.pipe._pipe as pipe
 import scipy.interpolate as interp
 import unifloc.common.ambient_temperature_distribution as amb
 import unifloc.pipe._hydrcorr as hr
+import unifloc.pipe.HasanKabirAnn as hk
 
 warnings.filterwarnings("ignore",category=RuntimeWarning)
 
@@ -544,19 +545,22 @@ if __name__ == '__main__':
                # ),
 #TECT
     for i in range(0, 10,10):
-        zab = schet(i,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325), t_head_r=293, absep_r = 2.54,
-             md1 = 1400, md2 = 1800, md3 = 2400,
-                 tvd1 = 1400, tvd2 = 1800, tvd3=2400,
-                  gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8, pb = (50 * 101325), t_res = 363.15,
-                  rsb = 50, muob = 0.5, bob = 1.5, d_o_1 = 142, d_o_2 =142 , d_o_3 = 142, d_i_1 = 73 , d_i_2 = 73,
-                  d_i_3 = 73,)
+        zab = schet(i,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325),
+                    t_head_r=293, absep_r = 2.54,
+                    md1 = 1400, md2 = 1800, md3 = 2400,
+                    tvd1 = 1400, tvd2 = 1800, tvd3=2400,
+                    gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8,
+                    pb = (50 * 101325), t_res = 363.15,
+                    rsb = 50, muob = 0.5, bob = 1.5,
+                    d_o_1 = 130, d_o_2 =130 , d_o_3 = 130,
+                    d_i_1 = 56 , d_i_2 = 56,d_i_3 = 56,)
         print('Забойное давлении:',zab, 'атм. при ГФ =',i, 'м3/м3')
         print(schet_pipe(i,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325),
-                 t_head_r=293, absep_r = 2.54,
-                 md1 = 1400, md2 = 1800, md3 = 3000,
-                  tvd1 = 1400,tvd2 = 1800, tvd3=3000,
-                   gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8,
-                   pb = (50 * 101325), t_res = 363.15,
-                  rsb = 50, muob = 0.5, bob = 1.5,
-                  d_o_1 = 130, d_o_2 =130 , d_o_3 = 130,
-                  d_i_1 = 56, d_i_2 = 56, d_i_3 = 56,))
+                    t_head_r=293, absep_r = 2.54,
+                    md1 = 1400, md2 = 1800, md3 = 3000,
+                    tvd1 = 1400,tvd2 = 1800, tvd3=3000,
+                    gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8,
+                    pb = (50 * 101325), t_res = 363.15,
+                    rsb = 50, muob = 0.5, bob = 1.5,
+                    d_o_1 = 130, d_o_2 =130 , d_o_3 = 130,
+                    d_i_1 = 56, d_i_2 = 56, d_i_3 = 56,))
