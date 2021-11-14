@@ -368,17 +368,15 @@ if __name__ == '__main__':
         h_prev = h_steps[-1]
         h_steps.append(h)
         theta = traj.calc_angle(h_prev,h)
-        # print(md)
         PVT.calc_flow(pt[0],pt[1])
         corr.theta = theta
         corr.fluid = PVT
         corr.d_o_m = interp.interp1d(
                 d_o["MD"], d_o["d_o"], fill_value="extrapolate", kind="previous"
-                )(md)
+                )(h)
         corr.d_i_m =interp.interp1d(
                 d_i["MD"], d_i["d_i"], fill_value="extrapolate", kind="previous"
-                )(md)
-        # print(corr.d_o_m)
+                )(h)
         dp_dl = corr.calc_grad()
         dt_dl = ambient_temperature_data.calc_geotemp_grad(h)
         return dp_dl, dt_dl
@@ -476,7 +474,8 @@ if __name__ == '__main__':
         ambient_temperature_data = {"MD": [0, md3], "T": [t_head_r, t_res]}
         amb_temp = amb.AmbientTemperatureDistribution(ambient_temperature_data)
         vr = func_p_list(p_head = p_head_r, t_head=t_head_r, h=tvd3,
-                         PVT=pvt, traj=trajectory, corr = test3, d_o=d_o, d_i=d_i,md_tvd=md_tvd, ambient_temperature_data=amb_temp)
+                         PVT=pvt, traj=trajectory, corr = test3, d_o=d_o, d_i=d_i,
+                         md_tvd=md_tvd, ambient_temperature_data=amb_temp)
         vr1 = vr[0]
         vr2 = vr1[0]
         vr3= vr2[-1] / 101325
@@ -527,24 +526,24 @@ if __name__ == '__main__':
 
 
 #TECT
-    for i in range(0, 10,10):
-        zab = schet(i,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325),
+    for i in range(100, 110,10):
+        zab = schet(i,qu_liq_r=450, wct_r=0.25, p_head_r = (15*101325),
                     t_head_r=293, absep_r = 2.54,
-                    md1 = 1400, md2 = 1800, md3 = 3600,
-                    tvd1 = 1400, tvd2 = 1800, tvd3=3000,
+                    md1 = 1400, md2 = 1800, md3 = 2500,
+                    tvd1 = 1400, tvd2 = 1800, tvd3=2500,
                     gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8,
                     pb = (50 * 101325), t_res = 363.15,
-                    rsb = 50, muob = 0.5, bob = 1.5,
-                    d_o_1 = 142, d_o_2 =142 , d_o_3 = 142,
-                    d_i_1 = 73, d_i_2 = 73, d_i_3 = 73,)
+                    rsb = 100, muob = 0.5, bob = 1.5,
+                    d_o_1 = 170, d_o_2 =142 , d_o_3 = 142,
+                    d_i_1 = 73, d_i_2 = 73, d_i_3 = 56,)
         # print('Забойное давлении:',zab, 'Па. при ГФ =',i, 'м3/м3')
         print(zab)
-        print(schet_pipe(i,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325),
+        print(schet_pipe(i,qu_liq_r=450, wct_r=0.25, p_head_r = (15*101325),
                     t_head_r=293, absep_r = 2.54,
-                    md1 = 1400, md2 = 1800, md3 = 36000,
-                    tvd1 = 1400,tvd2 = 1800, tvd3=3000,
+                    md1 = 1400, md2 = 1800, md3 = 2500,
+                    tvd1 = 1400,tvd2 = 1800, tvd3=2500,
                     gamma_gas = 0.7,gamma_wat = 1, gamma_oil=0.8,
                     pb = (50 * 101325), t_res = 363.15,
-                    rsb = 50, muob = 0.5, bob = 1.5,
-                    d_o_1 = 130, d_o_2 =130 , d_o_3 = 130,
-                    d_i_1 = 56, d_i_2 = 56, d_i_3 = 56,))
+                    rsb = 100, muob = 0.5, bob = 1.5,
+                    d_o_1 = 170, d_o_2 =142 , d_o_3 = 142,
+                    d_i_1 =73, d_i_2 = 73, d_i_3 = 56,))
