@@ -11,7 +11,6 @@ import unifloc.pipe._hydrcorr as hr
 warnings.filterwarnings("ignore",category=RuntimeWarning)
 
 
-#TODO fsolve(экспоненты и логарифм, пока подходит только fsolve)
 class HasanKabirAnn(hr.HydrCorr):
     """
     Класс для расчета градиента давления в затрубном пространстве по корреляции HasanKabir/CaetanoBrill
@@ -324,9 +323,17 @@ class HasanKabirAnn(hr.HydrCorr):
         """
         Метод для расчета градиента давления
         Upward Vertical Two-Phase Flow Through an Annulus—Part II
+        :param: c_calibr_grav - пока не реализовано
+        :param: c_calibr_fric - пока не реализовано
+        :param: h_mes - пока не реализовано
+        :param: flow_direction - пока (1,0)
+        :param: vgas_prev - пока не реализовано
+        :param: rho_gas_prev - пока не реализовано
+        :param: h_mes_prev - пока не реализовано
+        :param: calc_acc - пока не реализовано
+        :param: rho_mix_rc_kgm3 - пока не реализовано
 
         :return: суммарный градиент давления, Па/м
-
         """
 
         self.angle = theta_deg
