@@ -303,7 +303,7 @@ class Annul(pip.Pipe):
 
 
 if __name__ == '__main__':
-    def schet_pipe(rp,qu_liq_r,wct_r,p_head_r,t_head_r , absep_r, gamma_gas, gamma_wat, gamma_oil, pb,
+    def schet_ann(rp,qu_liq_r,wct_r,p_head_r,t_head_r , absep_r, gamma_gas, gamma_wat, gamma_oil, pb,
          t_res, rsb, muob, bob, md1, md2, md3, tvd1, tvd2, tvd3, d_o_1, d_o_2, d_o_3, d_i_1, d_i_2, d_i_3):
         pvt_model_data = {"black_oil": {"gamma_gas": gamma_gas, "gamma_wat": gamma_wat, "gamma_oil": gamma_oil,
                                          "rp": rp,
@@ -344,7 +344,7 @@ if __name__ == '__main__':
                  amb_temp_dist=amb_temp,int_method='RK45', d_func = d_i_func,d_o_func = d_oo_func,
                  directions=(1,0), friction_factor=1,holdup_factor=1,heat_balance=1,steps=step)
 
-    print(schet_pipe(0,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325),
+    print(schet_ann(0,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325),
                  t_head_r=293, absep_r = 2.54,
                  md1 = 1400, md2 = 1800, md3 = 3000,
                   tvd1 = 1400,tvd2 = 1800, tvd3=3000,
