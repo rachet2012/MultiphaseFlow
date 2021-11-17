@@ -1,14 +1,16 @@
 from typing import Union
 
 import numpy as np
+import pandas as pd
+import scipy.integrate as integr
+import scipy.interpolate as interp
+
 import unifloc.pipe._pipe as pip
 import unifloc.pvt.fluid_flow as  fl
-import pandas as pd
 import unifloc.common.trajectory as tr
-import unifloc.pipe._friction as fr
-
-import scipy.integrate as integr
+import unifloc.tools.exceptions as exc
 import unifloc.common.ambient_temperature_distribution as amb
+import unifloc.pipe.HasanKabirAnn as hk
 
 
 class Annul(pip.Pipe):
@@ -21,10 +23,65 @@ class Annul(pip.Pipe):
         hydr_corr_type="HasanKabir"
     ):
         self.fluid = fluid
-        self.d_casing = d_casing
-        self.d_tubing = d_tubing
+        self._d_casing = d_casing
+        self._d_tubing = d_tubing
         self.roughness = roughness
+        self._hydrcorr = None
         self.hydr_corr_type = hydr_corr_type
+        self.hydrcorr = hydr_corr_type.lower()
+
+    @property
+    def d(self):
+        return self._d_casing
+
+    @property
+    def d_o(self):
+        return self._d_tubing
+
+    @d.setter
+    def d(self, value):
+        self._d = value
+        self._hydrcorr.d = value
+
+    @d_o.setter
+    def d_o(self, value):
+        self._d_o = value
+        self._hydrcorr.d_o_m = value
+
+
+    @property
+    def hydrcorr(self):
+        return self._hydrcorr
+
+    @hydrcorr.setter
+    def hydrcorr(self, value):
+        """
+        Изменение типа корреляции в Pipe и дочерних классах
+
+        Parameters
+        ----------
+        :param value: тип гидравлической корреляции
+
+        :return: Тип корреляции
+
+        """
+        if value.lower() == "hasankabir":
+            self._hydrcorr = hk.HasanKabirAnn(d = self.d, d_o_m=self.d_o)
+            self.hydr_corr_type = "HasanKabir"
+        else:
+            raise exc.NotImplementedHydrCorrError(
+                f"Корреляция {value} еще не реализована."
+                f"Используйте другие корреляции",
+                value,
+            )
+
+    @staticmethod
+    def __lower_limit(h, pt, *args):
+        """
+        Проверка на минимальное значение давления при интегрировании
+        """
+
+        return pt[0] - 90000
 
     def __define_hvrho(self, h, calc_direction):
         """
@@ -78,6 +135,7 @@ class Annul(pip.Pipe):
         return h_prev_act, vsm_prev_act, rho_n_prev_act
 
 
+
     def __integr_func(
         self,
         h,
@@ -85,8 +143,11 @@ class Annul(pip.Pipe):
         trajectory,
         amb_temp_dist,
         directions,
+        holdup_factor,
+        friction_factor,
         d_i_func,
-        d_o_func
+        d_o_func,
+        heat_balance,
     ):
         """
         Функция для интегрирования трубы
@@ -128,10 +189,32 @@ class Annul(pip.Pipe):
         theta_deg = trajectory.calc_angle(h_prev, h)
 
         # Вычисление диаметра
+        if d_i_func is not None:
+            self.d = d_i_func(h).item()
+            self.d_o = d_o_func(h).item()
 
 
         # Расчет градиента давления, используя необходимую гидравлическую корреляцию
-        dp_dl = directions[0] * self.hydrcorr.calc_grad(theta_deg, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,)
+        dp_dl = directions[0] * self.hydrcorr.calc_grad(
+            theta_deg=theta_deg,
+            eps_m=self.roughness,
+            ql_rc_m3day=self.fluid.ql,
+            qg_rc_m3day=self.fluid.qg,
+            mul_rc_cp=self.fluid.mul,
+            mug_rc_cp=self.fluid.mug,
+            sigma_l_nm=self.fluid.stlg,
+            rho_lrc_kgm3=self.fluid.rl,
+            rho_grc_kgm3=self.fluid.rg,
+            c_calibr_grav=holdup_factor,
+            c_calibr_fric=friction_factor,
+            h_mes=h,
+            flow_direction=directions[0],
+            vgas_prev=vgas_prev,
+            rho_gas_prev=rho_gas_prev,
+            h_mes_prev=h_prev,
+            calc_acc=True,
+            rho_mix_rc_kgm3=self.fluid.rm,
+        )
 
         # Расчет геотермического градиента
         dt_dl = amb_temp_dist.calc_geotemp_grad(h)
@@ -153,7 +236,12 @@ class Annul(pip.Pipe):
         amb_temp_dist,
         int_method,
         directions,
+        friction_factor,
+        holdup_factor,
         steps,
+        d_func,
+        d_o_func,
+        heat_balance,
     ):
         """
         Метод для интегрирования давления, температуры в трубе
@@ -191,7 +279,7 @@ class Annul(pip.Pipe):
         self._rho_n_prev_next = 0
         self._rho_n_prev_hist = np.array([0])
 
-
+        self.__lower_limit.terminal = True
         dptdl_integration = integr.solve_ivp(
             self.__integr_func,
             t_span=(h0, h1),
@@ -201,12 +289,17 @@ class Annul(pip.Pipe):
                 trajectory,
                 amb_temp_dist,
                 directions,
-                self.d_casing,
-                self.d_tubing,
+                holdup_factor,
+                friction_factor,
+                d_func,
+                d_o_func,
+                heat_balance,
             ),
             t_eval=steps,
+            events=self.__lower_limit,
         )
         return dptdl_integration
+
 
 
 if __name__ == '__main__':
@@ -237,15 +330,19 @@ if __name__ == '__main__':
         d_i = pd.DataFrame(columns=["MD", "d_i"],
                                     data=[[0, d_i_1], [md1, d_i_1],
                                     [md2, d_i_2], [md3, d_i_3]])
-        d_o = 142
-        d_i = 73
+        d_i_func = interp.interp1d(
+                d_i["MD"], d_i["d_i"], fill_value="extrapolate", kind="previous"
+               )
+        d_oo_func = interp.interp1d(
+                d_o["MD"], d_o["d_o"], fill_value="extrapolate", kind="previous"
+               )
         ambient_temperature_data = {"MD": [0, md3], "T": [t_head_r, t_res]}
         amb_temp = amb.AmbientTemperatureDistribution(ambient_temperature_data)
         step = [i for i in range(0, tvd3+50, 50)]
-        pip = Annul(fluid=pvt,d_casing=d_o, d_tubing=d_i, roughness=absep_r,hydr_corr_type='HasanKabir')
+        pip = Annul(fluid=pvt, d_casing=142, d_tubing= 73, roughness=absep_r,hydr_corr_type='HasanKabir')
         return pip.integrate_pipe(p0 = p_head_r,t0= t_head_r,h0=0,h1=tvd3,trajectory= trajector,
-                 amb_temp_dist=amb_temp,int_method='RK45',
-                 directions=(1,0),steps=step)
+                 amb_temp_dist=amb_temp,int_method='RK45', d_func = d_i_func,d_o_func = d_oo_func,
+                 directions=(1,0), friction_factor=1,holdup_factor=1,heat_balance=1,steps=step)
 
     print(schet_pipe(0,qu_liq_r=300, wct_r=0.6, p_head_r = (15*101325),
                  t_head_r=293, absep_r = 2.54,
