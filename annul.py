@@ -13,7 +13,7 @@ import unifloc.common.ambient_temperature_distribution as amb
 import unifloc.pipe.HasanKabirAnn as hk
 
 
-class Annul(pip.Pipe):
+class Annul():
     def __init__(
         self,
         fluid: fl.FluidFlow,
